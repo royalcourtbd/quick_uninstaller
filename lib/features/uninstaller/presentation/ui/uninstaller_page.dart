@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:quick_uninstaller/core/di/service_locator.dart';
+import 'package:quick_uninstaller/core/utility/extensions.dart';
 import 'package:quick_uninstaller/core/widgets/presentable_widget_builder.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_presenter.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_ui_state.dart';
@@ -10,9 +11,6 @@ class UninstallerPage extends StatelessWidget {
 
   final UninstallerPresenter _presenter = locate<UninstallerPresenter>();
 
-  static const Color _primaryGreen = Color(0xFF4CAF50);
-  static const Color _darkGreen = Color(0xFF388E3C);
-
   @override
   Widget build(BuildContext context) {
     return PresentableWidgetBuilder(
@@ -20,38 +18,38 @@ class UninstallerPage extends StatelessWidget {
       builder: () {
         final UninstallerUiState state = _presenter.currentUiState;
         return Scaffold(
-          backgroundColor: _primaryGreen,
+          backgroundColor: context.color.scaffoldBackgroundColor,
           body: Column(
             children: [
-              _buildAppBar(state),
-              _buildTabBar(state),
-              Expanded(child: _buildBody(state)),
-              _buildMemoryBar(state),
+              _buildAppBar(context, state),
+              _buildTabBar(context, state),
+              Expanded(child: _buildBody(context, state)),
+              _buildMemoryBar(context, state),
             ],
           ),
-          floatingActionButton: _buildSearchFab(state),
+          floatingActionButton: _buildSearchFab(context, state),
         );
       },
     );
   }
 
-  Widget _buildAppBar(UninstallerUiState state) {
+  Widget _buildAppBar(BuildContext context, UninstallerUiState state) {
     return SafeArea(
       bottom: false,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            const Icon(Icons.delete_sweep, color: Colors.white, size: 32),
+            Icon(Icons.delete_sweep, color: context.color.titleColor, size: 32),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Uninstaller',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: context.color.titleColor,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
@@ -59,7 +57,7 @@ class UninstallerPage extends StatelessWidget {
                   Text(
                     '${state.totalAppCount} APPS',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: context.color.subTitleColor,
                       fontSize: 13,
                     ),
                   ),
@@ -67,11 +65,11 @@ class UninstallerPage extends StatelessWidget {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.sort, color: Colors.white),
+              icon: Icon(Icons.sort, color: context.color.titleColor),
               onPressed: () {},
             ),
             IconButton(
-              icon: const Icon(Icons.more_vert, color: Colors.white),
+              icon: Icon(Icons.more_vert, color: context.color.titleColor),
               onPressed: () {},
             ),
           ],
@@ -80,26 +78,36 @@ class UninstallerPage extends StatelessWidget {
     );
   }
 
-  Widget _buildTabBar(UninstallerUiState state) {
-    return Row(
-      children: [
-        _buildTab(
-          icon: Icons.person,
-          label: 'USER APPS: ${state.filteredUserApps.length}',
-          isSelected: state.selectedTabIndex == 0,
-          onTap: () => _presenter.changeTab(0),
+  Widget _buildTabBar(BuildContext context, UninstallerUiState state) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: context.color.blackColor200, width: 0.5),
         ),
-        _buildTab(
-          icon: Icons.android,
-          label: 'SYSTEM APPS: ${state.filteredSystemApps.length}',
-          isSelected: state.selectedTabIndex == 1,
-          onTap: () => _presenter.changeTab(1),
-        ),
-      ],
+      ),
+      child: Row(
+        children: [
+          _buildTab(
+            context: context,
+            icon: Icons.person,
+            label: 'USER APPS: ${state.filteredUserApps.length}',
+            isSelected: state.selectedTabIndex == 0,
+            onTap: () => _presenter.changeTab(0),
+          ),
+          _buildTab(
+            context: context,
+            icon: Icons.android,
+            label: 'SYSTEM APPS: ${state.filteredSystemApps.length}',
+            isSelected: state.selectedTabIndex == 1,
+            onTap: () => _presenter.changeTab(1),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildTab({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required bool isSelected,
@@ -113,7 +121,9 @@ class UninstallerPage extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: isSelected ? Colors.white : Colors.transparent,
+                color: isSelected
+                    ? context.color.accentColor
+                    : Colors.transparent,
                 width: 3,
               ),
             ),
@@ -121,12 +131,20 @@ class UninstallerPage extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Colors.white, size: 20),
+              Icon(
+                icon,
+                color: isSelected
+                    ? context.color.titleColor
+                    : context.color.subTitleColor,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: isSelected ? 1.0 : 0.7),
+                  color: isSelected
+                      ? context.color.titleColor
+                      : context.color.subTitleColor,
                   fontSize: 13,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
@@ -138,34 +156,34 @@ class UninstallerPage extends StatelessWidget {
     );
   }
 
-  Widget _buildBody(UninstallerUiState state) {
+  Widget _buildBody(BuildContext context, UninstallerUiState state) {
     if (state.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+      return Center(
+        child: CircularProgressIndicator(color: context.color.accentColor),
       );
     }
 
     if (state.searchQuery.isNotEmpty) {
-      return _buildSearchHeader(state);
+      return _buildSearchHeader(context, state);
     }
 
-    return _buildAppList(state);
+    return _buildAppList(context, state);
   }
 
-  Widget _buildSearchHeader(UninstallerUiState state) {
+  Widget _buildSearchHeader(BuildContext context, UninstallerUiState state) {
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: TextField(
             autofocus: true,
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: context.color.titleColor),
             decoration: InputDecoration(
               hintText: 'Search apps...',
-              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-              prefixIcon: const Icon(Icons.search, color: Colors.white),
+              hintStyle: TextStyle(color: context.color.captionColor),
+              prefixIcon: Icon(Icons.search, color: context.color.subTitleColor),
               suffixIcon: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: Icon(Icons.close, color: context.color.subTitleColor),
                 onPressed: () => _presenter.updateSearchQuery(''),
               ),
               border: OutlineInputBorder(
@@ -173,17 +191,17 @@ class UninstallerPage extends StatelessWidget {
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.2),
+              fillColor: context.color.cardColor,
             ),
             onChanged: _presenter.updateSearchQuery,
           ),
         ),
-        Expanded(child: _buildAppList(state)),
+        Expanded(child: _buildAppList(context, state)),
       ],
     );
   }
 
-  Widget _buildAppList(UninstallerUiState state) {
+  Widget _buildAppList(BuildContext context, UninstallerUiState state) {
     final apps = state.selectedTabIndex == 0
         ? state.filteredUserApps
         : state.filteredSystemApps;
@@ -192,10 +210,7 @@ class UninstallerPage extends StatelessWidget {
       return Center(
         child: Text(
           state.searchQuery.isNotEmpty ? 'No apps found' : 'No apps',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 16,
-          ),
+          style: TextStyle(color: context.color.subTitleColor, fontSize: 16),
         ),
       );
     }
@@ -209,29 +224,29 @@ class UninstallerPage extends StatelessWidget {
     );
   }
 
-  Widget _buildMemoryBar(UninstallerUiState state) {
+  Widget _buildMemoryBar(BuildContext context, UninstallerUiState state) {
     if (state.totalBytes == 0) return const SizedBox.shrink();
     return SafeArea(
       top: false,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 6),
-        color: _darkGreen,
+        color: context.color.surfaceColor,
         child: Text(
           state.formattedFreeMemory,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white, fontSize: 13),
+          style: TextStyle(color: context.color.subTitleColor, fontSize: 13),
         ),
       ),
     );
   }
 
-  Widget _buildSearchFab(UninstallerUiState state) {
+  Widget _buildSearchFab(BuildContext context, UninstallerUiState state) {
     if (state.searchQuery.isNotEmpty) return const SizedBox.shrink();
     return FloatingActionButton(
-      backgroundColor: Colors.orange,
+      backgroundColor: context.color.accentColor,
       onPressed: () => _presenter.updateSearchQuery(' '),
-      child: const Icon(Icons.search, color: Colors.white),
+      child: Icon(Icons.search, color: context.color.whiteColor),
     );
   }
 }

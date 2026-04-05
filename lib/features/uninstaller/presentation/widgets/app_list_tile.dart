@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:quick_uninstaller/core/utility/extensions.dart';
 import 'package:quick_uninstaller/core/utils/date_formatter.dart';
 import 'package:quick_uninstaller/features/uninstaller/domain/entities/app_info_entity.dart';
 
@@ -13,17 +14,17 @@ class AppListTile extends StatelessWidget {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: CircleAvatar(
         radius: 24,
-        backgroundColor: Colors.white24,
+        backgroundColor: context.color.cardColor,
         backgroundImage:
             app.appIcon != null ? MemoryImage(app.appIcon!) : null,
         child: app.appIcon == null
-            ? const Icon(Icons.android, color: Colors.white)
+            ? Icon(Icons.android, color: context.color.subTitleColor)
             : null,
       ),
       title: Text(
         '${app.appName} ${app.versionName}',
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: context.color.titleColor,
           fontSize: 15,
           fontWeight: FontWeight.w500,
         ),
@@ -32,10 +33,10 @@ class AppListTile extends StatelessWidget {
       ),
       subtitle: Text(
         '${app.formattedSize}  •  ${getFormattedDate(app.installDate, format: 'EEE, d MMM yyyy')}',
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
+        style: TextStyle(color: context.color.subTitleColor, fontSize: 13),
       ),
       trailing: IconButton(
-        icon: const Icon(Icons.more_vert, color: Colors.white),
+        icon: Icon(Icons.more_vert, color: context.color.subTitleColor),
         onPressed: () {},
       ),
     );
