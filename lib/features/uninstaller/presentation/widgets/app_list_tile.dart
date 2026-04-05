@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:quick_uninstaller/core/utils/date_formatter.dart';
 import 'package:quick_uninstaller/features/uninstaller/domain/entities/app_info_entity.dart';
 
 class AppListTile extends StatelessWidget {
@@ -31,7 +31,7 @@ class AppListTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        '${app.formattedSize}  •  ${DateFormat('EEE, d MMM yyyy').format(app.installDate)}',
+        '${app.formattedSize}  •  ${getFormattedDate(app.installDate, format: 'EEE, d MMM yyyy')}',
         style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
       ),
       trailing: IconButton(
