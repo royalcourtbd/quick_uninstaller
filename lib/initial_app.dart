@@ -30,7 +30,7 @@ class InitialApp extends StatelessWidget {
           onInit: () => AppScreen.setUp(context),
           onReady: () => AppScreen.setUp(context),
           debugShowCheckedModeBanner: false,
-          theme: AappTheme.lightTheme,
+          theme: AappTheme.darkTheme,
           title: 'Initial Project',
           // home: isFirstRun ? OnboardingPage() : MainPage(),
           home: UninstallerPage(),
