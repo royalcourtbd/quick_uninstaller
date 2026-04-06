@@ -100,15 +100,16 @@ class AppActionsBottomSheet extends StatelessWidget {
             const SizedBox(height: 12),
             Divider(color: context.color.blackColor200, height: 1),
             // Actions
-            _ActionTile(
-              icon: Icons.delete_outline,
-              label: 'Uninstall',
-              color: context.color.errorColor,
-              onTap: () {
-                Navigator.pop(context);
-                onUninstall();
-              },
-            ),
+            if (!app.isSystemApp)
+              _ActionTile(
+                icon: Icons.delete_outline,
+                label: 'Uninstall',
+                color: context.color.errorColor,
+                onTap: () {
+                  Navigator.pop(context);
+                  onUninstall();
+                },
+              ),
             _ActionTile(
               icon: Icons.launch,
               label: 'Launch',
