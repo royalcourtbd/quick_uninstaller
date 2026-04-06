@@ -35,6 +35,38 @@ class UninstallerLocalDataSource {
     };
   }
 
+  Future<bool> launchApp(String packageName) async {
+    final result = await _channel.invokeMethod<bool>(
+      'launchApp',
+      {'packageName': packageName},
+    );
+    return result ?? false;
+  }
+
+  Future<bool> openAppDetails(String packageName) async {
+    final result = await _channel.invokeMethod<bool>(
+      'openAppDetails',
+      {'packageName': packageName},
+    );
+    return result ?? false;
+  }
+
+  Future<bool> openInPlayStore(String packageName) async {
+    final result = await _channel.invokeMethod<bool>(
+      'openInPlayStore',
+      {'packageName': packageName},
+    );
+    return result ?? false;
+  }
+
+  Future<bool> addShortcut(String packageName) async {
+    final result = await _channel.invokeMethod<bool>(
+      'addShortcut',
+      {'packageName': packageName},
+    );
+    return result ?? false;
+  }
+
   Future<bool> uninstallApp(String packageName) async {
     final result = await _channel.invokeMethod<bool>(
       'uninstallApp',

@@ -147,6 +147,39 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     uiState.value = currentUiState.copyWith(selectedPackages: allPackages);
   }
 
+  // --- App Actions ---
+
+  Future<void> launchApp(String packageName) async {
+    try {
+      await _localDataSource.launchApp(packageName);
+    } catch (_) {}
+  }
+
+  Future<void> openAppDetails(String packageName) async {
+    try {
+      await _localDataSource.openAppDetails(packageName);
+    } catch (_) {}
+  }
+
+  Future<void> openInPlayStore(String packageName) async {
+    try {
+      await _localDataSource.openInPlayStore(packageName);
+    } catch (_) {}
+  }
+
+  Future<void> addShortcut(String packageName) async {
+    try {
+      final success = await _localDataSource.addShortcut(packageName);
+      if (success) {
+        addUserMessage('Shortcut added');
+      } else {
+        addUserMessage('Shortcut not supported');
+      }
+    } catch (_) {
+      addUserMessage('Failed to add shortcut');
+    }
+  }
+
   // --- Uninstall ---
 
   Future<void> uninstallApp(String packageName) async {

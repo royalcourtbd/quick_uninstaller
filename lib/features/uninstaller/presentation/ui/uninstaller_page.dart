@@ -107,10 +107,14 @@ class _UninstallerPageState extends State<UninstallerPage>
       selectedPackages: state.selectedPackages,
       isSelectionMode: state.isSelectionMode,
       hasSearchQuery: state.searchQuery.isNotEmpty,
-      onMoreTap: (app) => UninstallBottomSheet.show(
+      onMoreTap: (app) => AppActionsBottomSheet.show(
         context,
         app: app,
         onUninstall: () => _presenter.uninstallApp(app.packageName),
+        onLaunch: () => _presenter.launchApp(app.packageName),
+        onDetails: () => _presenter.openAppDetails(app.packageName),
+        onPlayStore: () => _presenter.openInPlayStore(app.packageName),
+        onShortcut: () => _presenter.addShortcut(app.packageName),
       ),
       onLongPress: _presenter.toggleAppSelection,
       onTap: (packageName) {

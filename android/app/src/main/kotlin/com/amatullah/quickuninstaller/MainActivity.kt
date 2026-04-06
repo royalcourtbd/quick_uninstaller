@@ -10,8 +10,12 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
+import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.os.Environment
 import android.os.StatFs
 import io.flutter.embedding.android.FlutterActivity
@@ -69,6 +73,99 @@ class MainActivity : FlutterActivity() {
                         if (packageName != null) {
                             val installed = isAppInstalled(packageName)
                             result.success(installed)
+                        } else {
+                            result.error("ERROR", "Package name is required", null)
+                        }
+                    }
+                    "launchApp" -> {
+                        val packageName = call.argument<String>("packageName")
+                        if (packageName != null) {
+                            try {
+                                val intent = packageManager.getLaunchIntentForPackage(packageName)
+                                if (intent != null) {
+                                    startActivity(intent)
+                                    result.success(true)
+                                } else {
+                                    result.success(false)
+                                }
+                            } catch (e: Exception) {
+                                result.error("ERROR", e.message, null)
+                            }
+                        } else {
+                            result.error("ERROR", "Package name is required", null)
+                        }
+                    }
+                    "openAppDetails" -> {
+                        val packageName = call.argument<String>("packageName")
+                        if (packageName != null) {
+                            try {
+                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.parse("package:$packageName")
+                                }
+                                startActivity(intent)
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.error("ERROR", e.message, null)
+                            }
+                        } else {
+                            result.error("ERROR", "Package name is required", null)
+                        }
+                    }
+                    "openInPlayStore" -> {
+                        val packageName = call.argument<String>("packageName")
+                        if (packageName != null) {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    data = Uri.parse("market://details?id=$packageName")
+                                }
+                                startActivity(intent)
+                                result.success(true)
+                            } catch (e: Exception) {
+                                // Fallback to browser
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                                        data = Uri.parse("https://play.google.com/store/apps/details?id=$packageName")
+                                    }
+                                    startActivity(intent)
+                                    result.success(true)
+                                } catch (e2: Exception) {
+                                    result.error("ERROR", e2.message, null)
+                                }
+                            }
+                        } else {
+                            result.error("ERROR", "Package name is required", null)
+                        }
+                    }
+                    "addShortcut" -> {
+                        val packageName = call.argument<String>("packageName")
+                        if (packageName != null) {
+                            try {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    val shortcutManager = getSystemService(ShortcutManager::class.java)
+                                    if (shortcutManager.isRequestPinShortcutSupported) {
+                                        val pm = packageManager
+                                        val launchIntent = pm.getLaunchIntentForPackage(packageName)
+                                        val appInfo = pm.getApplicationInfo(packageName, 0)
+                                        val appName = pm.getApplicationLabel(appInfo).toString()
+                                        val appIcon = pm.getApplicationIcon(appInfo)
+                                        val bitmap = drawableToBitmap(appIcon)
+
+                                        val shortcut = ShortcutInfo.Builder(this, packageName)
+                                            .setShortLabel(appName)
+                                            .setIcon(Icon.createWithBitmap(bitmap))
+                                            .setIntent(launchIntent ?: Intent(Intent.ACTION_MAIN).setPackage(packageName))
+                                            .build()
+                                        shortcutManager.requestPinShortcut(shortcut, null)
+                                        result.success(true)
+                                    } else {
+                                        result.success(false)
+                                    }
+                                } else {
+                                    result.success(false)
+                                }
+                            } catch (e: Exception) {
+                                result.error("ERROR", e.message, null)
+                            }
                         } else {
                             result.error("ERROR", "Package name is required", null)
                         }
