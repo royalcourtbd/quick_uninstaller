@@ -2,6 +2,7 @@ package com.amatullah.quickuninstaller
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -9,6 +10,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.os.StatFs
@@ -43,6 +45,31 @@ class MainActivity : FlutterActivity() {
                             result.success(memInfo)
                         } catch (e: Exception) {
                             result.error("ERROR", e.message, null)
+                        }
+                    }
+                    "uninstallApp" -> {
+                        val packageName = call.argument<String>("packageName")
+                        if (packageName != null) {
+                            try {
+                                val intent = Intent(Intent.ACTION_DELETE).apply {
+                                    data = Uri.parse("package:$packageName")
+                                }
+                                startActivity(intent)
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.error("ERROR", e.message, null)
+                            }
+                        } else {
+                            result.error("ERROR", "Package name is required", null)
+                        }
+                    }
+                    "isAppInstalled" -> {
+                        val packageName = call.argument<String>("packageName")
+                        if (packageName != null) {
+                            val installed = isAppInstalled(packageName)
+                            result.success(installed)
+                        } else {
+                            result.error("ERROR", "Package name is required", null)
                         }
                     }
                     else -> result.notImplemented()
@@ -120,6 +147,20 @@ class MainActivity : FlutterActivity() {
         drawable.setBounds(0, 0, canvas.width, canvas.height)
         drawable.draw(canvas)
         return bitmap
+    }
+
+    private fun isAppInstalled(packageName: String): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0)
+            }
+            true
+        } catch (e: PackageManager.NameNotFoundException) {
+            false
+        }
     }
 
     private fun getMemoryInfo(): Map<String, Long> {

@@ -10,6 +10,8 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   final GetInstalledAppsUseCase _getInstalledAppsUseCase;
   final UninstallerLocalDataSource _localDataSource;
 
+  bool _pendingUninstallCheck = false;
+
   final Obs<UninstallerUiState> uiState =
       Obs<UninstallerUiState>(UninstallerUiState.empty());
   UninstallerUiState get currentUiState => uiState.value;
@@ -55,6 +57,66 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
 
   void updateSearchQuery(String query) {
     uiState.value = currentUiState.copyWith(searchQuery: query);
+  }
+
+  // --- Selection ---
+
+  void toggleAppSelection(String packageName) {
+    final selected = Set<String>.from(currentUiState.selectedPackages);
+    if (selected.contains(packageName)) {
+      selected.remove(packageName);
+    } else {
+      selected.add(packageName);
+    }
+    uiState.value = currentUiState.copyWith(selectedPackages: selected);
+  }
+
+  void clearSelection() {
+    uiState.value = currentUiState.copyWith(selectedPackages: {});
+  }
+
+  void selectAll() {
+    final apps = currentUiState.selectedTabIndex == 0
+        ? currentUiState.filteredUserApps
+        : currentUiState.filteredSystemApps;
+    final allPackages = apps.map((a) => a.packageName).toSet();
+    uiState.value = currentUiState.copyWith(selectedPackages: allPackages);
+  }
+
+  // --- Uninstall ---
+
+  Future<void> uninstallApp(String packageName) async {
+    _pendingUninstallCheck = true;
+    try {
+      await _localDataSource.uninstallApp(packageName);
+    } catch (_) {}
+  }
+
+  Future<void> onAppResumed() async {
+    if (!_pendingUninstallCheck) return;
+    _pendingUninstallCheck = false;
+
+    final selected = currentUiState.selectedPackages;
+    if (selected.isNotEmpty) {
+      final stillInstalled = <String>{};
+      for (final pkg in selected) {
+        final installed = await _localDataSource.isAppInstalled(pkg);
+        if (installed) stillInstalled.add(pkg);
+      }
+      uiState.value = currentUiState.copyWith(selectedPackages: stillInstalled);
+    }
+    await loadApps();
+    _loadMemoryInfo();
+  }
+
+  Future<void> uninstallSelectedApps() async {
+    final packages = currentUiState.selectedPackages.toList();
+    uiState.value = currentUiState.copyWith(isUninstalling: true);
+    for (final pkg in packages) {
+      await uninstallApp(pkg);
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+    uiState.value = currentUiState.copyWith(isUninstalling: false);
   }
 
   @override

@@ -11,6 +11,8 @@ class UninstallerUiState extends BaseUiState {
     required this.searchQuery,
     required this.freeBytes,
     required this.totalBytes,
+    required this.selectedPackages,
+    required this.isUninstalling,
   });
 
   factory UninstallerUiState.empty() {
@@ -23,6 +25,8 @@ class UninstallerUiState extends BaseUiState {
       searchQuery: '',
       freeBytes: 0,
       totalBytes: 0,
+      selectedPackages: {},
+      isUninstalling: false,
     );
   }
 
@@ -32,6 +36,10 @@ class UninstallerUiState extends BaseUiState {
   final String searchQuery;
   final int freeBytes;
   final int totalBytes;
+  final Set<String> selectedPackages;
+  final bool isUninstalling;
+
+  bool get isSelectionMode => selectedPackages.isNotEmpty;
 
   List<AppInfoEntity> get filteredUserApps {
     if (searchQuery.isEmpty) return userApps;
@@ -67,6 +75,8 @@ class UninstallerUiState extends BaseUiState {
         searchQuery,
         freeBytes,
         totalBytes,
+        selectedPackages,
+        isUninstalling,
       ];
 
   UninstallerUiState copyWith({
@@ -78,6 +88,8 @@ class UninstallerUiState extends BaseUiState {
     String? searchQuery,
     int? freeBytes,
     int? totalBytes,
+    Set<String>? selectedPackages,
+    bool? isUninstalling,
   }) {
     return UninstallerUiState(
       isLoading: isLoading ?? this.isLoading,
@@ -88,6 +100,8 @@ class UninstallerUiState extends BaseUiState {
       searchQuery: searchQuery ?? this.searchQuery,
       freeBytes: freeBytes ?? this.freeBytes,
       totalBytes: totalBytes ?? this.totalBytes,
+      selectedPackages: selectedPackages ?? this.selectedPackages,
+      isUninstalling: isUninstalling ?? this.isUninstalling,
     );
   }
 }

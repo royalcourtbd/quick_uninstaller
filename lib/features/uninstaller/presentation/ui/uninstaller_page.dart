@@ -2,14 +2,41 @@ import 'package:flutter/material.dart';
 import 'package:quick_uninstaller/core/di/service_locator.dart';
 import 'package:quick_uninstaller/core/utility/extensions.dart';
 import 'package:quick_uninstaller/core/widgets/presentable_widget_builder.dart';
+import 'package:quick_uninstaller/features/uninstaller/domain/entities/app_info_entity.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_presenter.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_ui_state.dart';
+import 'package:quick_uninstaller/features/uninstaller/presentation/widgets/app_list_shimmer.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/widgets/app_list_tile.dart';
 
-class UninstallerPage extends StatelessWidget {
-  UninstallerPage({super.key});
+class UninstallerPage extends StatefulWidget {
+  const UninstallerPage({super.key});
 
+  @override
+  State<UninstallerPage> createState() => _UninstallerPageState();
+}
+
+class _UninstallerPageState extends State<UninstallerPage>
+    with WidgetsBindingObserver {
   final UninstallerPresenter _presenter = locate<UninstallerPresenter>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _presenter.onAppResumed();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,17 +48,64 @@ class UninstallerPage extends StatelessWidget {
           backgroundColor: context.color.scaffoldBackgroundColor,
           body: Column(
             children: [
-              _buildAppBar(context, state),
+              state.isSelectionMode
+                  ? _buildSelectionAppBar(context, state)
+                  : _buildAppBar(context, state),
               _buildTabBar(context, state),
               Expanded(child: _buildBody(context, state)),
               _buildMemoryBar(context, state),
             ],
           ),
-          floatingActionButton: _buildSearchFab(context, state),
+          floatingActionButton: state.isSelectionMode
+              ? _buildUninstallFab(context, state)
+              : _buildSearchFab(context, state),
         );
       },
     );
   }
+
+  // --- Selection Mode App Bar ---
+
+  Widget _buildSelectionAppBar(
+      BuildContext context, UninstallerUiState state) {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(
+          children: [
+            IconButton(
+              icon: Icon(Icons.close, color: context.color.titleColor),
+              onPressed: _presenter.clearSelection,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${state.selectedPackages.length} selected',
+                style: TextStyle(
+                  color: context.color.titleColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: _presenter.selectAll,
+              child: Text(
+                'Select All',
+                style: TextStyle(
+                  color: context.color.accentColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- Normal App Bar ---
 
   Widget _buildAppBar(BuildContext context, UninstallerUiState state) {
     return SafeArea(
@@ -158,9 +232,7 @@ class UninstallerPage extends StatelessWidget {
 
   Widget _buildBody(BuildContext context, UninstallerUiState state) {
     if (state.isLoading) {
-      return Center(
-        child: CircularProgressIndicator(color: context.color.accentColor),
-      );
+      return const AppListShimmer();
     }
 
     if (state.searchQuery.isNotEmpty) {
@@ -181,7 +253,8 @@ class UninstallerPage extends StatelessWidget {
             decoration: InputDecoration(
               hintText: 'Search apps...',
               hintStyle: TextStyle(color: context.color.captionColor),
-              prefixIcon: Icon(Icons.search, color: context.color.subTitleColor),
+              prefixIcon:
+                  Icon(Icons.search, color: context.color.subTitleColor),
               suffixIcon: IconButton(
                 icon: Icon(Icons.close, color: context.color.subTitleColor),
                 onPressed: () => _presenter.updateSearchQuery(''),
@@ -216,13 +289,123 @@ class UninstallerPage extends StatelessWidget {
     }
 
     return ListView.builder(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.only(top: 8, bottom: 80),
       itemCount: apps.length,
       itemBuilder: (context, index) {
-        return AppListTile(app: apps[index]);
+        final app = apps[index];
+        return AppListTile(
+          app: app,
+          isSelected: state.selectedPackages.contains(app.packageName),
+          isSelectionMode: state.isSelectionMode,
+          onMoreTap: () => _showUninstallDialog(context, app),
+          onLongPress: () => _presenter.toggleAppSelection(app.packageName),
+          onTap: () {
+            if (state.isSelectionMode) {
+              _presenter.toggleAppSelection(app.packageName);
+            }
+          },
+        );
       },
     );
   }
+
+  // --- Uninstall Dialog ---
+
+  void _showUninstallDialog(BuildContext context, AppInfoEntity app) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.color.surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: context.color.captionColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // App info header
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: app.appIcon != null
+                              ? Image.memory(app.appIcon!, fit: BoxFit.cover)
+                              : Icon(Icons.android,
+                                  color: context.color.subTitleColor),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              app.appName,
+                              style: TextStyle(
+                                color: context.color.titleColor,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              app.formattedSize,
+                              style: TextStyle(
+                                color: context.color.subTitleColor,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Divider(color: context.color.blackColor200, height: 1),
+                // Uninstall option
+                ListTile(
+                  leading: Icon(Icons.delete_outline,
+                      color: context.color.errorColor),
+                  title: Text(
+                    'Uninstall',
+                    style: TextStyle(
+                      color: context.color.errorColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _presenter.uninstallApp(app.packageName);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // --- Bottom Bar ---
 
   Widget _buildMemoryBar(BuildContext context, UninstallerUiState state) {
     if (state.totalBytes == 0) return const SizedBox.shrink();
@@ -236,6 +419,36 @@ class UninstallerPage extends StatelessWidget {
           state.formattedFreeMemory,
           textAlign: TextAlign.center,
           style: TextStyle(color: context.color.subTitleColor, fontSize: 13),
+        ),
+      ),
+    );
+  }
+
+  // --- FABs ---
+
+  Widget _buildUninstallFab(BuildContext context, UninstallerUiState state) {
+    return FloatingActionButton.extended(
+      backgroundColor: context.color.errorColor,
+      onPressed: state.isUninstalling
+          ? null
+          : () => _presenter.uninstallSelectedApps(),
+      icon: state.isUninstalling
+          ? SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: context.color.whiteColor,
+              ),
+            )
+          : Icon(Icons.delete, color: context.color.whiteColor),
+      label: Text(
+        state.isUninstalling
+            ? 'Uninstalling...'
+            : 'Uninstall (${state.selectedPackages.length})',
+        style: TextStyle(
+          color: context.color.whiteColor,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

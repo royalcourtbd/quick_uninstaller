@@ -33,7 +33,7 @@ class InitialApp extends StatelessWidget {
           theme: AappTheme.darkTheme,
           title: 'Initial Project',
           // home: isFirstRun ? OnboardingPage() : MainPage(),
-          home: UninstallerPage(),
+          home: const UninstallerPage(),
         );
       },
     );

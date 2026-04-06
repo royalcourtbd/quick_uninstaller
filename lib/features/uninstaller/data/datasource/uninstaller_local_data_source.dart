@@ -34,4 +34,20 @@ class UninstallerLocalDataSource {
       'freeBytes': (result['freeBytes'] as num).toInt(),
     };
   }
+
+  Future<bool> uninstallApp(String packageName) async {
+    final result = await _channel.invokeMethod<bool>(
+      'uninstallApp',
+      {'packageName': packageName},
+    );
+    return result ?? false;
+  }
+
+  Future<bool> isAppInstalled(String packageName) async {
+    final result = await _channel.invokeMethod<bool>(
+      'isAppInstalled',
+      {'packageName': packageName},
+    );
+    return result ?? false;
+  }
 }
