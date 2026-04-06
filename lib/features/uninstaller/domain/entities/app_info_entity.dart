@@ -32,6 +32,18 @@ class AppInfoEntity extends BaseEntity {
     return '${(appSize / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
+  AppInfoEntity copyWith({Uint8List? appIcon}) {
+    return AppInfoEntity(
+      packageName: packageName,
+      appName: appName,
+      versionName: versionName,
+      appSize: appSize,
+      installDate: installDate,
+      isSystemApp: isSystemApp,
+      appIcon: appIcon ?? this.appIcon,
+    );
+  }
+
   @override
   List<Object?> get props => [packageName];
 }

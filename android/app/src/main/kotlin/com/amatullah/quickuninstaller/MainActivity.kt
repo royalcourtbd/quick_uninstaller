@@ -22,6 +22,7 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
     private val channel = "com.amatullah.quickuninstaller/apps"
+    private val ICON_SIZE = 96
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -93,10 +94,8 @@ class MainActivity : FlutterActivity() {
 
             val appName = appInfo?.let { pm.getApplicationLabel(it).toString() } ?: packageInfo.packageName
             val versionName = packageInfo.versionName ?: ""
-
             val appSize = getAppSize(appInfo)
             val installDate = packageInfo.firstInstallTime
-
             val iconBytes = appInfo?.let { getAppIconBytes(pm, it) }
 
             mapOf(
@@ -127,7 +126,12 @@ class MainActivity : FlutterActivity() {
             val drawable: Drawable = pm.getApplicationIcon(appInfo)
             val bitmap = drawableToBitmap(drawable)
             val stream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 80, stream)
+            } else {
+                @Suppress("DEPRECATION")
+                bitmap.compress(Bitmap.CompressFormat.WEBP, 80, stream)
+            }
             stream.toByteArray()
         } catch (e: Exception) {
             null
@@ -136,15 +140,14 @@ class MainActivity : FlutterActivity() {
 
     private fun drawableToBitmap(drawable: Drawable): Bitmap {
         if (drawable is BitmapDrawable && drawable.bitmap != null) {
-            return drawable.bitmap
+            val src = drawable.bitmap
+            if (src.width <= ICON_SIZE && src.height <= ICON_SIZE) return src
+            return Bitmap.createScaledBitmap(src, ICON_SIZE, ICON_SIZE, true)
         }
 
-        val width = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else 48
-        val height = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else 48
-
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val bitmap = Bitmap.createBitmap(ICON_SIZE, ICON_SIZE, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.setBounds(0, 0, ICON_SIZE, ICON_SIZE)
         drawable.draw(canvas)
         return bitmap
     }
