@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:quick_uninstaller/core/utility/logger_utility.dart';
-import 'package:quick_uninstaller/initial_app.dart';
+import 'package:quick_uninstaller/quick_uninstaller.dart';
 
 /// Utility class for retrieving the screen dimensions of the device.
 ///
@@ -52,7 +52,7 @@ class AppScreen {
   static double? _width;
   static double? _height;
 
-  static Size get _size => MediaQuery.sizeOf(InitialApp.globalContext);
+  static Size get _size => MediaQuery.sizeOf(QuickUninstaller.globalContext);
 
   static double get width {
     _width ??= _size.width;

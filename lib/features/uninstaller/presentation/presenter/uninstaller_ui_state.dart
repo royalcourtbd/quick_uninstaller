@@ -1,6 +1,18 @@
 import 'package:quick_uninstaller/core/base/base_ui_state.dart';
 import 'package:quick_uninstaller/features/uninstaller/domain/entities/app_info_entity.dart';
 
+enum SortType {
+  nameAsc('Name (A-Z)'),
+  nameDesc('Name (Z-A)'),
+  sizeDesc('Size (Largest)'),
+  sizeAsc('Size (Smallest)'),
+  dateDesc('Date (Newest)'),
+  dateAsc('Date (Oldest)');
+
+  const SortType(this.label);
+  final String label;
+}
+
 class UninstallerUiState extends BaseUiState {
   const UninstallerUiState({
     required super.isLoading,
@@ -13,6 +25,7 @@ class UninstallerUiState extends BaseUiState {
     required this.totalBytes,
     required this.selectedPackages,
     required this.isUninstalling,
+    required this.sortType,
   });
 
   factory UninstallerUiState.empty() {
@@ -27,6 +40,7 @@ class UninstallerUiState extends BaseUiState {
       totalBytes: 0,
       selectedPackages: {},
       isUninstalling: false,
+      sortType: SortType.nameAsc,
     );
   }
 
@@ -38,6 +52,7 @@ class UninstallerUiState extends BaseUiState {
   final int totalBytes;
   final Set<String> selectedPackages;
   final bool isUninstalling;
+  final SortType sortType;
 
   bool get isSelectionMode => selectedPackages.isNotEmpty;
 
@@ -77,6 +92,7 @@ class UninstallerUiState extends BaseUiState {
         totalBytes,
         selectedPackages,
         isUninstalling,
+        sortType,
       ];
 
   UninstallerUiState copyWith({
@@ -90,6 +106,7 @@ class UninstallerUiState extends BaseUiState {
     int? totalBytes,
     Set<String>? selectedPackages,
     bool? isUninstalling,
+    SortType? sortType,
   }) {
     return UninstallerUiState(
       isLoading: isLoading ?? this.isLoading,
@@ -102,6 +119,7 @@ class UninstallerUiState extends BaseUiState {
       totalBytes: totalBytes ?? this.totalBytes,
       selectedPackages: selectedPackages ?? this.selectedPackages,
       isUninstalling: isUninstalling ?? this.isUninstalling,
+      sortType: sortType ?? this.sortType,
     );
   }
 }

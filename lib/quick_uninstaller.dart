@@ -5,8 +5,8 @@ import 'package:quick_uninstaller/core/config/themes.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/ui/uninstaller_page.dart';
 import 'package:responsive_sizer/responsive_sizer.dart';
 
-class InitialApp extends StatelessWidget {
-  const InitialApp({super.key, required this.isFirstRun});
+class QuickUninstaller extends StatelessWidget {
+  const QuickUninstaller({super.key, required this.isFirstRun});
 
   final bool isFirstRun;
 

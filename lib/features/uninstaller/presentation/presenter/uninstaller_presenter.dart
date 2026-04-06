@@ -1,6 +1,7 @@
 import 'package:quick_uninstaller/core/base/base_presenter.dart';
 import 'package:quick_uninstaller/core/utility/navigation_helpers.dart';
 import 'package:quick_uninstaller/features/uninstaller/data/datasource/uninstaller_local_data_source.dart';
+import 'package:quick_uninstaller/features/uninstaller/domain/entities/app_info_entity.dart';
 import 'package:quick_uninstaller/features/uninstaller/domain/usecase/get_installed_apps_use_case.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_ui_state.dart';
 
@@ -57,6 +58,37 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
 
   void updateSearchQuery(String query) {
     uiState.value = currentUiState.copyWith(searchQuery: query);
+  }
+
+  // --- Sort ---
+
+  void changeSortType(SortType sortType) {
+    final sorted = _applySortTo(currentUiState.userApps, sortType);
+    final sortedSystem = _applySortTo(currentUiState.systemApps, sortType);
+    uiState.value = currentUiState.copyWith(
+      sortType: sortType,
+      userApps: sorted,
+      systemApps: sortedSystem,
+    );
+  }
+
+  List<AppInfoEntity> _applySortTo(List<AppInfoEntity> apps, SortType type) {
+    final list = List<AppInfoEntity>.from(apps);
+    switch (type) {
+      case SortType.nameAsc:
+        list.sort((a, b) => a.appName.toLowerCase().compareTo(b.appName.toLowerCase()));
+      case SortType.nameDesc:
+        list.sort((a, b) => b.appName.toLowerCase().compareTo(a.appName.toLowerCase()));
+      case SortType.sizeDesc:
+        list.sort((a, b) => b.appSize.compareTo(a.appSize));
+      case SortType.sizeAsc:
+        list.sort((a, b) => a.appSize.compareTo(b.appSize));
+      case SortType.dateDesc:
+        list.sort((a, b) => b.installDate.compareTo(a.installDate));
+      case SortType.dateAsc:
+        list.sort((a, b) => a.installDate.compareTo(b.installDate));
+    }
+    return list;
   }
 
   // --- Selection ---
