@@ -114,4 +114,5 @@ class CacheKeys {
   static const String firstTime = "first_time_key";
   static const String launchCount = "launch_count_key";
   static const String location = "location_key";
+  static const String sortType = "sort_type_key";
 }

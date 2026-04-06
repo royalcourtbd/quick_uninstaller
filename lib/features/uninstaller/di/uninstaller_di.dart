@@ -26,7 +26,7 @@ class UninstallerDi {
 
     // Presenters
     serviceLocator.registerFactory(
-      () => loadPresenter(UninstallerPresenter(locate(), locate())),
+      () => loadPresenter(UninstallerPresenter(locate(), locate(), locate())),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:quick_uninstaller/core/base/base_presenter.dart';
+import 'package:quick_uninstaller/core/services/local_cache_service.dart';
 import 'package:quick_uninstaller/core/utility/navigation_helpers.dart';
 import 'package:quick_uninstaller/features/uninstaller/data/datasource/uninstaller_local_data_source.dart';
 import 'package:quick_uninstaller/features/uninstaller/domain/entities/app_info_entity.dart';
@@ -6,13 +7,19 @@ import 'package:quick_uninstaller/features/uninstaller/domain/usecase/get_instal
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_ui_state.dart';
 
 class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
-  UninstallerPresenter(this._getInstalledAppsUseCase, this._localDataSource);
+  UninstallerPresenter(
+    this._getInstalledAppsUseCase,
+    this._localDataSource,
+    this._cacheService,
+  );
 
   final GetInstalledAppsUseCase _getInstalledAppsUseCase;
   final UninstallerLocalDataSource _localDataSource;
+  final LocalCacheService _cacheService;
 
   bool _pendingUninstallCheck = false;
-  final Set<String> _uninstallTargets = {};
+  String? _singleUninstallTarget;
+  final List<String> _batchQueue = [];
 
   final Obs<UninstallerUiState> uiState =
       Obs<UninstallerUiState>(UninstallerUiState.empty());
@@ -21,19 +28,27 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   @override
   void onInit() {
     super.onInit();
+    _loadSavedSortType();
     loadApps();
     _loadMemoryInfo();
   }
+
+  // --- Load Apps ---
 
   Future<void> loadApps() async {
     await parseDataFromEitherWithUserMessage(
       task: () => _getInstalledAppsUseCase.execute(),
       showLoading: true,
       onDataLoaded: (apps) {
-        final userApps = apps.where((app) => !app.isSystemApp).toList()
-          ..sort((a, b) => a.appName.toLowerCase().compareTo(b.appName.toLowerCase()));
-        final systemApps = apps.where((app) => app.isSystemApp).toList()
-          ..sort((a, b) => a.appName.toLowerCase().compareTo(b.appName.toLowerCase()));
+        final sortType = currentUiState.sortType;
+        final userApps = _applySortTo(
+          apps.where((app) => !app.isSystemApp).toList(),
+          sortType,
+        );
+        final systemApps = _applySortTo(
+          apps.where((app) => app.isSystemApp).toList(),
+          sortType,
+        );
 
         uiState.value = currentUiState.copyWith(
           userApps: userApps,
@@ -63,7 +78,17 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
 
   // --- Sort ---
 
+  void _loadSavedSortType() {
+    final savedIndex = _cacheService.getData<int>(key: CacheKeys.sortType);
+    if (savedIndex != null && savedIndex < SortType.values.length) {
+      uiState.value = currentUiState.copyWith(
+        sortType: SortType.values[savedIndex],
+      );
+    }
+  }
+
   void changeSortType(SortType sortType) {
+    _cacheService.saveData(key: CacheKeys.sortType, value: sortType.index);
     final sorted = _applySortTo(currentUiState.userApps, sortType);
     final sortedSystem = _applySortTo(currentUiState.systemApps, sortType);
     uiState.value = currentUiState.copyWith(
@@ -77,9 +102,11 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     final list = List<AppInfoEntity>.from(apps);
     switch (type) {
       case SortType.nameAsc:
-        list.sort((a, b) => a.appName.toLowerCase().compareTo(b.appName.toLowerCase()));
+        list.sort((a, b) =>
+            a.appName.toLowerCase().compareTo(b.appName.toLowerCase()));
       case SortType.nameDesc:
-        list.sort((a, b) => b.appName.toLowerCase().compareTo(a.appName.toLowerCase()));
+        list.sort((a, b) =>
+            b.appName.toLowerCase().compareTo(a.appName.toLowerCase()));
       case SortType.sizeDesc:
         list.sort((a, b) => b.appSize.compareTo(a.appSize));
       case SortType.sizeAsc:
@@ -105,7 +132,11 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   }
 
   void clearSelection() {
-    uiState.value = currentUiState.copyWith(selectedPackages: {});
+    _batchQueue.clear();
+    uiState.value = currentUiState.copyWith(
+      selectedPackages: {},
+      isUninstalling: false,
+    );
   }
 
   void selectAll() {
@@ -120,9 +151,30 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
 
   Future<void> uninstallApp(String packageName) async {
     _pendingUninstallCheck = true;
-    _uninstallTargets.add(packageName);
+    _singleUninstallTarget = packageName;
     try {
       await _localDataSource.uninstallApp(packageName);
+    } catch (_) {}
+  }
+
+  Future<void> uninstallSelectedApps() async {
+    _batchQueue
+      ..clear()
+      ..addAll(currentUiState.selectedPackages);
+    uiState.value = currentUiState.copyWith(isUninstalling: true);
+    _fireNextInQueue();
+  }
+
+  void _fireNextInQueue() {
+    if (_batchQueue.isEmpty) {
+      uiState.value = currentUiState.copyWith(isUninstalling: false);
+      return;
+    }
+    final next = _batchQueue.removeAt(0);
+    _pendingUninstallCheck = true;
+    _singleUninstallTarget = next;
+    try {
+      _localDataSource.uninstallApp(next);
     } catch (_) {}
   }
 
@@ -130,17 +182,34 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     if (!_pendingUninstallCheck) return;
     _pendingUninstallCheck = false;
 
-    // Check if any target was actually uninstalled
-    bool anyRemoved = false;
-    for (final pkg in _uninstallTargets) {
-      final installed = await _localDataSource.isAppInstalled(pkg);
-      if (!installed) anyRemoved = true;
+    final target = _singleUninstallTarget;
+    _singleUninstallTarget = null;
+
+    // Check if the target was actually uninstalled
+    bool wasRemoved = false;
+    if (target != null) {
+      final installed = await _localDataSource.isAppInstalled(target);
+      wasRemoved = !installed;
     }
-    _uninstallTargets.clear();
 
-    if (!anyRemoved) return;
+    // If batch queue has more items, fire next regardless of cancel
+    if (_batchQueue.isNotEmpty) {
+      if (wasRemoved) {
+        // Remove from selection
+        final selected = Set<String>.from(currentUiState.selectedPackages)
+          ..remove(target);
+        uiState.value = currentUiState.copyWith(selectedPackages: selected);
+      }
+      _fireNextInQueue();
+      return;
+    }
 
-    // Update selection: remove uninstalled packages
+    // Batch done or single uninstall
+    uiState.value = currentUiState.copyWith(isUninstalling: false);
+
+    if (!wasRemoved) return;
+
+    // Clean up selection
     final selected = currentUiState.selectedPackages;
     if (selected.isNotEmpty) {
       final stillInstalled = <String>{};
@@ -152,16 +221,6 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     }
     await loadApps();
     _loadMemoryInfo();
-  }
-
-  Future<void> uninstallSelectedApps() async {
-    final packages = currentUiState.selectedPackages.toList();
-    uiState.value = currentUiState.copyWith(isUninstalling: true);
-    for (final pkg in packages) {
-      await uninstallApp(pkg);
-      await Future.delayed(const Duration(milliseconds: 500));
-    }
-    uiState.value = currentUiState.copyWith(isUninstalling: false);
   }
 
   @override
