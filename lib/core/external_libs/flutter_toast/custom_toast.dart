@@ -83,7 +83,6 @@ class CustomToastState extends State<CustomToast>
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
     return Positioned(
       left: widget.xOffset,
       bottom: widget.yOffset,
@@ -101,12 +100,12 @@ class CustomToastState extends State<CustomToast>
                   vertical: tenPx,
                 ),
                 decoration: BoxDecoration(
-                  color: theme.primaryColor,
+                  color: context.color.cardColor,
                   borderRadius: BorderRadius.circular(twentyFourPx),
                 ),
                 child: Text(
                   widget.message,
-                  style: TextStyle(color: context.color.whiteColor),
+                  style: TextStyle(color: context.color.titleColor),
                 ),
               ),
             ),
