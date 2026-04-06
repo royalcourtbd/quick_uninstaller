@@ -211,6 +211,23 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     } catch (_) {}
   }
 
+  void _removeAppFromCache(String packageName) {
+    final userApps = currentUiState.userApps
+        .where((a) => a.packageName != packageName)
+        .toList();
+    final systemApps = currentUiState.systemApps
+        .where((a) => a.packageName != packageName)
+        .toList();
+    final selected = Set<String>.from(currentUiState.selectedPackages)
+      ..remove(packageName);
+    uiState.value = currentUiState.copyWith(
+      userApps: userApps,
+      systemApps: systemApps,
+      selectedPackages: selected,
+    );
+    _loadMemoryInfo();
+  }
+
   Future<void> onAppResumed() async {
     if (!_pendingUninstallCheck) return;
     _pendingUninstallCheck = false;
@@ -218,21 +235,15 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     final target = _singleUninstallTarget;
     _singleUninstallTarget = null;
 
-    // Check if the target was actually uninstalled
     bool wasRemoved = false;
     if (target != null) {
       final installed = await _localDataSource.isAppInstalled(target);
       wasRemoved = !installed;
     }
 
-    // If batch queue has more items, fire next regardless of cancel
+    // If batch queue has more items, fire next
     if (_batchQueue.isNotEmpty) {
-      if (wasRemoved) {
-        // Remove from selection
-        final selected = Set<String>.from(currentUiState.selectedPackages)
-          ..remove(target);
-        uiState.value = currentUiState.copyWith(selectedPackages: selected);
-      }
+      if (wasRemoved) _removeAppFromCache(target!);
       _fireNextInQueue();
       return;
     }
@@ -242,18 +253,7 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
 
     if (!wasRemoved) return;
 
-    // Clean up selection
-    final selected = currentUiState.selectedPackages;
-    if (selected.isNotEmpty) {
-      final stillInstalled = <String>{};
-      for (final pkg in selected) {
-        final installed = await _localDataSource.isAppInstalled(pkg);
-        if (installed) stillInstalled.add(pkg);
-      }
-      uiState.value = currentUiState.copyWith(selectedPackages: stillInstalled);
-    }
-    await loadApps();
-    _loadMemoryInfo();
+    _removeAppFromCache(target!);
   }
 
   @override
