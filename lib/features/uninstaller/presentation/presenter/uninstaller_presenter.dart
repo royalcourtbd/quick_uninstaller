@@ -12,6 +12,7 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   final UninstallerLocalDataSource _localDataSource;
 
   bool _pendingUninstallCheck = false;
+  final Set<String> _uninstallTargets = {};
 
   final Obs<UninstallerUiState> uiState =
       Obs<UninstallerUiState>(UninstallerUiState.empty());
@@ -119,6 +120,7 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
 
   Future<void> uninstallApp(String packageName) async {
     _pendingUninstallCheck = true;
+    _uninstallTargets.add(packageName);
     try {
       await _localDataSource.uninstallApp(packageName);
     } catch (_) {}
@@ -128,6 +130,17 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     if (!_pendingUninstallCheck) return;
     _pendingUninstallCheck = false;
 
+    // Check if any target was actually uninstalled
+    bool anyRemoved = false;
+    for (final pkg in _uninstallTargets) {
+      final installed = await _localDataSource.isAppInstalled(pkg);
+      if (!installed) anyRemoved = true;
+    }
+    _uninstallTargets.clear();
+
+    if (!anyRemoved) return;
+
+    // Update selection: remove uninstalled packages
     final selected = currentUiState.selectedPackages;
     if (selected.isNotEmpty) {
       final stillInstalled = <String>{};
