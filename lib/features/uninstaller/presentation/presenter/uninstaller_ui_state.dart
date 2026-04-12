@@ -54,7 +54,11 @@ class UninstallerUiState extends BaseUiState {
   final bool isUninstalling;
   final SortType sortType;
 
-  bool get isSelectionMode => selectedPackages.isNotEmpty;
+  // Selection mode is only meaningful on the user apps tab, since system
+  // apps cannot be uninstalled. Selection state is preserved across tab
+  // switches, but the selection UI hides while viewing system apps.
+  bool get isSelectionMode =>
+      selectedPackages.isNotEmpty && selectedTabIndex == 0;
 
   List<AppInfoEntity> get filteredUserApps {
     if (searchQuery.isEmpty) return userApps;

@@ -33,7 +33,7 @@ class AppListTile extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: onTap,
-          onLongPress: onLongPress,
+          onLongPress: app.isSystemApp ? null : onLongPress,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(

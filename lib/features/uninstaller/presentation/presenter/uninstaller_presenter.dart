@@ -122,6 +122,11 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   // --- Selection ---
 
   void toggleAppSelection(String packageName) {
+    // System apps cannot be uninstalled, so they must not be selectable.
+    final isSystem = currentUiState.systemApps
+        .any((app) => app.packageName == packageName);
+    if (isSystem) return;
+
     final selected = Set<String>.from(currentUiState.selectedPackages);
     if (selected.contains(packageName)) {
       selected.remove(packageName);
@@ -140,10 +145,10 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   }
 
   void selectAll() {
-    final apps = currentUiState.selectedTabIndex == 0
-        ? currentUiState.filteredUserApps
-        : currentUiState.filteredSystemApps;
-    final allPackages = apps.map((a) => a.packageName).toSet();
+    // Only user apps can be selected; system apps cannot be uninstalled.
+    if (currentUiState.selectedTabIndex != 0) return;
+    final allPackages =
+        currentUiState.filteredUserApps.map((a) => a.packageName).toSet();
     uiState.value = currentUiState.copyWith(selectedPackages: allPackages);
   }
 
@@ -191,9 +196,16 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   }
 
   Future<void> uninstallSelectedApps() async {
+    // Defensively drop any system apps so the batch never tries to uninstall
+    // something the OS will reject.
+    final systemPackages =
+        currentUiState.systemApps.map((a) => a.packageName).toSet();
+    final packages = currentUiState.selectedPackages
+        .where((p) => !systemPackages.contains(p))
+        .toList();
     _batchQueue
       ..clear()
-      ..addAll(currentUiState.selectedPackages);
+      ..addAll(packages);
     uiState.value = currentUiState.copyWith(isUninstalling: true);
     _fireNextInQueue();
   }
