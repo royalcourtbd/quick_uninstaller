@@ -136,10 +136,12 @@ class _UninstallerPageState extends State<UninstallerPage>
   }
 
   Widget _buildFab(UninstallerUiState state) {
-    if (state.isSelectionMode) {
+    if (state.isSelectionMode || state.isUninstalling) {
       return UninstallFab(
         selectedCount: state.selectedPackages.length,
         isUninstalling: state.isUninstalling,
+        uninstallProgress: state.uninstallProgress,
+        uninstallTotal: state.uninstallTotal,
         onPressed: _presenter.uninstallSelectedApps,
       );
     }

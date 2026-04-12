@@ -6,11 +6,15 @@ class UninstallFab extends StatelessWidget {
     super.key,
     required this.selectedCount,
     required this.isUninstalling,
+    required this.uninstallProgress,
+    required this.uninstallTotal,
     required this.onPressed,
   });
 
   final int selectedCount;
   final bool isUninstalling;
+  final int uninstallProgress;
+  final int uninstallTotal;
   final VoidCallback onPressed;
 
   @override
@@ -30,7 +34,7 @@ class UninstallFab extends StatelessWidget {
           : Icon(Icons.delete, color: context.color.whiteColor),
       label: Text(
         isUninstalling
-            ? 'Uninstalling...'
+            ? 'Uninstalling ($uninstallProgress/$uninstallTotal)...'
             : 'Uninstall ($selectedCount)',
         style: TextStyle(
           color: context.color.whiteColor,

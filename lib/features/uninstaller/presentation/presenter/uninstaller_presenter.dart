@@ -20,6 +20,7 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   bool _pendingUninstallCheck = false;
   String? _singleUninstallTarget;
   final List<String> _batchQueue = [];
+  int _batchSuccessCount = 0;
 
   final Obs<UninstallerUiState> uiState =
       Obs<UninstallerUiState>(UninstallerUiState.empty());
@@ -138,9 +139,12 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
 
   void clearSelection() {
     _batchQueue.clear();
+    _batchSuccessCount = 0;
     uiState.value = currentUiState.copyWith(
       selectedPackages: {},
       isUninstalling: false,
+      uninstallProgress: 0,
+      uninstallTotal: 0,
     );
   }
 
@@ -206,13 +210,22 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     _batchQueue
       ..clear()
       ..addAll(packages);
-    uiState.value = currentUiState.copyWith(isUninstalling: true);
+    _batchSuccessCount = 0;
+    uiState.value = currentUiState.copyWith(
+      isUninstalling: true,
+      uninstallProgress: 0,
+      uninstallTotal: packages.length,
+    );
     _fireNextInQueue();
   }
 
   void _fireNextInQueue() {
     if (_batchQueue.isEmpty) {
-      uiState.value = currentUiState.copyWith(isUninstalling: false);
+      uiState.value = currentUiState.copyWith(
+        isUninstalling: false,
+        uninstallProgress: 0,
+        uninstallTotal: 0,
+      );
       return;
     }
     final next = _batchQueue.removeAt(0);
@@ -253,19 +266,53 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
       wasRemoved = !installed;
     }
 
+    final isBatch = currentUiState.uninstallTotal > 0;
+
+    // Update cache and counters
+    if (wasRemoved && target != null) {
+      if (isBatch) _batchSuccessCount++;
+      _removeAppFromCache(target);
+    }
+
+    // Update progress for batch
+    if (isBatch) {
+      uiState.value = currentUiState.copyWith(
+        uninstallProgress: currentUiState.uninstallProgress + 1,
+      );
+    }
+
     // If batch queue has more items, fire next
     if (_batchQueue.isNotEmpty) {
-      if (wasRemoved) _removeAppFromCache(target!);
       _fireNextInQueue();
       return;
     }
 
     // Batch done or single uninstall
-    uiState.value = currentUiState.copyWith(isUninstalling: false);
-
-    if (!wasRemoved) return;
-
-    _removeAppFromCache(target!);
+    if (isBatch) {
+      final total = currentUiState.uninstallTotal;
+      final skipped = total - _batchSuccessCount;
+      uiState.value = currentUiState.copyWith(
+        isUninstalling: false,
+        uninstallProgress: 0,
+        uninstallTotal: 0,
+      );
+      if (_batchSuccessCount == 0) {
+        addUserMessage('No apps were uninstalled');
+      } else if (skipped == 0) {
+        final s = _batchSuccessCount == 1 ? '' : 's';
+        addUserMessage('$_batchSuccessCount app$s uninstalled');
+      } else {
+        addUserMessage(
+          '$_batchSuccessCount uninstalled, $skipped skipped',
+        );
+      }
+      _batchSuccessCount = 0;
+    } else {
+      uiState.value = currentUiState.copyWith(isUninstalling: false);
+      if (!wasRemoved) {
+        addUserMessage('Uninstall cancelled');
+      }
+    }
   }
 
   @override

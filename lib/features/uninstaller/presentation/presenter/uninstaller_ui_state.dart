@@ -25,6 +25,8 @@ class UninstallerUiState extends BaseUiState {
     required this.totalBytes,
     required this.selectedPackages,
     required this.isUninstalling,
+    required this.uninstallProgress,
+    required this.uninstallTotal,
     required this.sortType,
   });
 
@@ -40,6 +42,8 @@ class UninstallerUiState extends BaseUiState {
       totalBytes: 0,
       selectedPackages: {},
       isUninstalling: false,
+      uninstallProgress: 0,
+      uninstallTotal: 0,
       sortType: SortType.nameAsc,
     );
   }
@@ -52,6 +56,8 @@ class UninstallerUiState extends BaseUiState {
   final int totalBytes;
   final Set<String> selectedPackages;
   final bool isUninstalling;
+  final int uninstallProgress;
+  final int uninstallTotal;
   final SortType sortType;
 
   // Selection mode is only meaningful on the user apps tab, since system
@@ -96,6 +102,8 @@ class UninstallerUiState extends BaseUiState {
         totalBytes,
         selectedPackages,
         isUninstalling,
+        uninstallProgress,
+        uninstallTotal,
         sortType,
       ];
 
@@ -110,6 +118,8 @@ class UninstallerUiState extends BaseUiState {
     int? totalBytes,
     Set<String>? selectedPackages,
     bool? isUninstalling,
+    int? uninstallProgress,
+    int? uninstallTotal,
     SortType? sortType,
   }) {
     return UninstallerUiState(
@@ -123,6 +133,8 @@ class UninstallerUiState extends BaseUiState {
       totalBytes: totalBytes ?? this.totalBytes,
       selectedPackages: selectedPackages ?? this.selectedPackages,
       isUninstalling: isUninstalling ?? this.isUninstalling,
+      uninstallProgress: uninstallProgress ?? this.uninstallProgress,
+      uninstallTotal: uninstallTotal ?? this.uninstallTotal,
       sortType: sortType ?? this.sortType,
     );
   }

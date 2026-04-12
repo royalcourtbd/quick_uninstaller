@@ -31,7 +31,7 @@ class QuickUninstaller extends StatelessWidget {
           onReady: () => AppScreen.setUp(context),
           debugShowCheckedModeBanner: false,
           theme: AappTheme.darkTheme,
-          title: 'Initial Project',
+          title: 'Quick Uninstaller',
           // home: isFirstRun ? OnboardingPage() : MainPage(),
           home: const UninstallerPage(),
         );
