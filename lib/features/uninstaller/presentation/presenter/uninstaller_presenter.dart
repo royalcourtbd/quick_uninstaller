@@ -128,6 +128,9 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   // --- Selection ---
 
   void toggleAppSelection(String packageName) {
+    // Block interaction while a batch uninstall is running.
+    if (currentUiState.isUninstalling) return;
+
     // System apps cannot be uninstalled, so they must not be selectable.
     final isSystem = currentUiState.systemApps
         .any((app) => app.packageName == packageName);
@@ -143,6 +146,7 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   }
 
   void clearSelection() {
+    if (currentUiState.isUninstalling) return;
     _batchQueue.clear();
     _batchSuccessCount = 0;
     uiState.value = currentUiState.copyWith(
@@ -154,6 +158,7 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   }
 
   void selectAll() {
+    if (currentUiState.isUninstalling) return;
     // Only user apps can be selected; system apps cannot be uninstalled.
     if (currentUiState.selectedTabIndex != 0) return;
     final allPackages =
