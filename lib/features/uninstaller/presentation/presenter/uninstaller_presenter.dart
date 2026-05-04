@@ -41,9 +41,14 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
       task: () => _getInstalledAppsUseCase.execute(),
       showLoading: true,
       onDataLoaded: (apps) {
+        // Hide this app from the list — users should not uninstall themselves.
+        const ownPackage = 'com.amatullah.quickuninstaller';
         final sortType = currentUiState.sortType;
         final userApps = _applySortTo(
-          apps.where((app) => !app.isSystemApp).toList(),
+          apps
+              .where((app) =>
+                  !app.isSystemApp && app.packageName != ownPackage)
+              .toList(),
           sortType,
         );
         final systemApps = _applySortTo(
