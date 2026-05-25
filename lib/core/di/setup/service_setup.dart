@@ -8,6 +8,7 @@ import 'package:quick_uninstaller/core/services/error_message_handler.dart';
 import 'package:quick_uninstaller/core/services/local_cache_service.dart';
 import 'package:quick_uninstaller/core/services/time_service.dart';
 import 'package:quick_uninstaller/core/utility/trial_utility.dart';
+import 'package:quick_uninstaller/firebase_options.dart';
 
 class ServiceSetup implements SetupModule {
   final GetIt _serviceLocator;
@@ -15,7 +16,7 @@ class ServiceSetup implements SetupModule {
 
   @override
   Future<void> setup() async {
-    // await _setUpFirebaseServices();
+    await _setUpFirebaseServices();
     _serviceLocator
       ..registerLazySingleton<ErrorMessageHandler>(ErrorMessageHandlerImpl.new)
       ..registerLazySingleton<BackendAsAService>(BackendAsAService.new)
@@ -24,14 +25,13 @@ class ServiceSetup implements SetupModule {
 
     // await GetServerKey().getServerKeyToken();
     await LocalCacheService.setUp();
-    await _setUpAudioService();
   }
 
   Future<void> _setUpFirebaseServices() async {
     await catchFutureOrVoid(() async {
       final FirebaseApp? firebaseApp = await catchAndReturnFuture(() async {
         return Firebase.initializeApp(
-          // options: DefaultFirebaseOptions.currentPlatform,
+          options: DefaultFirebaseOptions.currentPlatform,
         );
       });
 
@@ -50,9 +50,5 @@ class ServiceSetup implements SetupModule {
         return true;
       };
     });
-  }
-
-  Future<void> _setUpAudioService() async {
-    // Implement audio service setup
   }
 }

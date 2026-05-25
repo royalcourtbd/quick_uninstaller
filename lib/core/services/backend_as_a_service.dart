@@ -25,7 +25,7 @@ import 'package:synchronized/synchronized.dart';
 /// more future-proof and adaptable to changing needs.
 class BackendAsAService {
   BackendAsAService() {
-    // _initAnalytics();
+    _initAnalytics();
   }
   late final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
   late final FirebaseFirestore _fireStore = FirebaseFirestore.instance;

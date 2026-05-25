@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1031540090248",
+    "project_id": "quick-uninstaller-5f60d",
+    "storage_bucket": "quick-uninstaller-5f60d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1031540090248:android:f11e039f46b262ceac863d",
+        "android_client_info": {
+          "package_name": "com.amatullah.quickuninstaller"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDtJODLGYP30zXjfKhEyXR-eEtQDe6CSIw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
