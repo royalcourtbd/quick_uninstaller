@@ -1,0 +1,363 @@
+name: Repository Cleanup
+
+# =============================================================
+# Merged cleanup workflow — runs daily at 2:00 AM Bangladesh Time (UTC+6)
+# Handles: workflow runs + releases + artifacts cleanup
+# =============================================================
+
+on:
+  schedule:
+    # প্রতিদিন রাত ২:০০ টা Bangladesh Time (UTC+6) = 20:00 UTC
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which cleanup to run"
+        type: choice
+        options:
+          - all
+          - runs
+          - releases
+          - artifacts
+        default: all
+      keep_latest:
+        description: "Number of latest items to keep (runs & releases)"
+        required: false
+        type: number
+        default: 2
+      cutoff_days:
+        description: "Delete artifacts older than N days"
+        required: false
+        type: number
+        default: 7
+      dry_run:
+        description: "Dry run (only show what would be deleted)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  KEEP_LATEST: ${{ inputs.keep_latest || '2' }}
+  CUTOFF_DAYS: ${{ inputs.cutoff_days || '7' }}
+  DRY_RUN: ${{ inputs.dry_run || 'false' }}
+
+jobs:
+  # =============================================================
+  # 1. CLEANUP WORKFLOW RUNS — keep latest N, delete rest
+  # =============================================================
+  cleanup-runs:
+    if: >-
+      github.event_name == 'schedule' ||
+      inputs.target == 'all' ||
+      inputs.target == 'runs'
+    runs-on: ubuntu-latest
+    outputs:
+      deleted: ${{ steps.cleanup.outputs.deleted }}
+      kept: ${{ steps.cleanup.outputs.kept }}
+      total: ${{ steps.cleanup.outputs.total }}
+
+    steps:
+      - name: Delete old workflow runs
+        id: cleanup
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const keep = parseInt('${{ env.KEEP_LATEST }}') || 2;
+            const dryRun = '${{ env.DRY_RUN }}' === 'true';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Fetch all workflow runs (newest first by default)
+            const allRuns = await github.paginate(
+              github.rest.actions.listWorkflowRunsForRepo,
+              { owner, repo, per_page: 100 }
+            );
+
+            const total = allRuns.length;
+            const toDelete = keep > 0 ? allRuns.slice(keep) : allRuns;
+
+            console.log(`📊 Total runs: ${total}`);
+            console.log(`🎯 Keep latest: ${keep}`);
+            console.log(`🗑️  Candidates for deletion: ${toDelete.length}`);
+            console.log(`🔍 Dry run: ${dryRun}`);
+            console.log('');
+
+            let deleted = 0;
+            let skipped = 0;
+            let failed = 0;
+
+            for (const run of toDelete) {
+              // Skip active runs (in_progress / queued)
+              if (run.status === 'in_progress' || run.status === 'queued') {
+                console.log(`  ⏭️  Skipped: #${run.id} (${run.name}) — ${run.status}`);
+                skipped++;
+                continue;
+              }
+
+              if (dryRun) {
+                console.log(`  [DRY] Would delete: #${run.id} — ${run.name} — ${run.created_at}`);
+                deleted++;
+                continue;
+              }
+
+              try {
+                await github.rest.actions.deleteWorkflowRun({
+                  owner, repo, run_id: run.id,
+                });
+                deleted++;
+              } catch (e) {
+                console.log(`  ❌ Failed: #${run.id} — ${e.message}`);
+                failed++;
+              }
+            }
+
+            core.setOutput('deleted', deleted);
+            core.setOutput('kept', total - deleted);
+            core.setOutput('total', total);
+
+            console.log('');
+            console.log(`✅ ${dryRun ? 'Would delete' : 'Deleted'} ${deleted} of ${total} runs`);
+            if (skipped > 0) console.log(`⏭️  Skipped ${skipped} active runs`);
+            if (failed > 0) console.log(`❌ Failed ${failed} runs`);
+
+  # =============================================================
+  # 2. CLEANUP RELEASES & TAGS — keep latest N, delete rest
+  # =============================================================
+  cleanup-releases:
+    if: >-
+      github.event_name == 'schedule' ||
+      inputs.target == 'all' ||
+      inputs.target == 'releases'
+    runs-on: ubuntu-latest
+    outputs:
+      deleted: ${{ steps.delete.outputs.deleted }}
+      total: ${{ steps.list.outputs.total }}
+
+    steps:
+      - name: List releases
+        id: list
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "📦 Fetching releases..."
+
+          TOTAL=$(gh release list --repo ${{ github.repository }} --limit 100 --json tagName -q 'length')
+          echo "Total releases: $TOTAL"
+          echo "Keeping latest: ${{ env.KEEP_LATEST }}"
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+          if [ "$TOTAL" -le "${{ env.KEEP_LATEST }}" ]; then
+            echo "✅ Nothing to clean — only $TOTAL releases exist"
+            echo "count=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          DELETE_COUNT=$((TOTAL - ${{ env.KEEP_LATEST }}))
+          echo "Releases to delete: $DELETE_COUNT"
+          echo "count=$DELETE_COUNT" >> $GITHUB_OUTPUT
+
+          echo ""
+          echo "🗑️  These releases will be deleted:"
+          gh release list --repo ${{ github.repository }} --limit 100 \
+            --json tagName,publishedAt \
+            -q '.[${{ env.KEEP_LATEST }}:] | .[] | "  \(.tagName) — \(.publishedAt)"'
+
+      - name: Delete old releases
+        id: delete
+        if: steps.list.outputs.count != '0' && env.DRY_RUN == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🗑️  Deleting old releases..."
+
+          TAGS=$(gh release list --repo ${{ github.repository }} --limit 100 \
+            --json tagName -q '.[${{ env.KEEP_LATEST }}:][].tagName')
+
+          DELETED=0
+          FAILED=0
+
+          for TAG in $TAGS; do
+            echo "Deleting: $TAG"
+            if gh release delete "$TAG" --repo ${{ github.repository }} --cleanup-tag -y 2>/dev/null; then
+              DELETED=$((DELETED + 1))
+            else
+              echo "  ⚠️  Failed to delete $TAG"
+              FAILED=$((FAILED + 1))
+            fi
+          done
+
+          echo "deleted=$DELETED" >> $GITHUB_OUTPUT
+          echo ""
+          echo "✅ Deleted: $DELETED releases"
+          [ "$FAILED" -gt 0 ] && echo "⚠️  Failed: $FAILED releases" || true
+
+      - name: Dry run summary
+        if: env.DRY_RUN == 'true' && steps.list.outputs.count != '0'
+        run: |
+          echo "🔍 DRY RUN — no releases were deleted"
+          echo "Re-run with dry_run=false to actually delete"
+
+  # =============================================================
+  # 3. CLEANUP OLD ARTIFACTS — time-based (older than N days)
+  # =============================================================
+  cleanup-artifacts:
+    if: >-
+      github.event_name == 'schedule' ||
+      inputs.target == 'all' ||
+      inputs.target == 'artifacts'
+    runs-on: ubuntu-latest
+    outputs:
+      deleted: ${{ steps.cleanup.outputs.deleted }}
+      kept: ${{ steps.cleanup.outputs.kept }}
+
+    steps:
+      - name: Delete old artifacts
+        id: cleanup
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const dryRun = '${{ env.DRY_RUN }}' === 'true';
+            const cutoffDays = parseInt('${{ env.CUTOFF_DAYS }}') || 7;
+            const cutoff = new Date(Date.now() - cutoffDays * 24 * 60 * 60 * 1000);
+
+            console.log(`🗂️  Cutoff: ${cutoffDays} days (before ${cutoff.toISOString()})`);
+            console.log(`🔍 Dry run: ${dryRun}`);
+            console.log('');
+
+            let deleted = 0;
+            let kept = 0;
+            let failed = 0;
+            let page = 1;
+            const MAX_PAGES = 50; // safety guard against infinite loop
+
+            while (page <= MAX_PAGES) {
+              const { data: { artifacts } } = await github.rest.actions.listArtifactsForRepo({
+                owner, repo, per_page: 100, page,
+              });
+
+              if (artifacts.length === 0) break;
+
+              for (const artifact of artifacts) {
+                const createdAt = new Date(artifact.created_at);
+                const sizeMB = (artifact.size_in_bytes / 1024 / 1024).toFixed(1);
+
+                if (createdAt < cutoff) {
+                  if (dryRun) {
+                    console.log(`  [DRY] Would delete: ${artifact.name} (${artifact.created_at}, ${sizeMB}MB)`);
+                    deleted++;
+                  } else {
+                    try {
+                      await github.rest.actions.deleteArtifact({ owner, repo, artifact_id: artifact.id });
+                      console.log(`  🗑️  Deleted: ${artifact.name} (${sizeMB}MB)`);
+                      deleted++;
+                    } catch (e) {
+                      console.log(`  ❌ Failed: ${artifact.name} — ${e.message}`);
+                      failed++;
+                    }
+                  }
+                } else {
+                  console.log(`  ✅ Kept: ${artifact.name} (${artifact.created_at}, ${sizeMB}MB)`);
+                  kept++;
+                }
+              }
+
+              page++;
+            }
+
+            core.setOutput('deleted', deleted);
+            core.setOutput('kept', kept);
+            console.log('');
+            console.log(`✅ ${dryRun ? 'Would delete' : 'Deleted'} ${deleted} artifacts, kept ${kept}`);
+            if (failed > 0) console.log(`❌ Failed ${failed} artifacts`);
+
+  # =============================================================
+  # 4. SLACK NOTIFICATION — consolidated summary of all 3 jobs
+  # =============================================================
+  notify:
+    needs: [cleanup-runs, cleanup-releases, cleanup-artifacts]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Determine overall status
+        id: status
+        run: |
+          RUNS="${{ needs.cleanup-runs.result }}"
+          RELEASES="${{ needs.cleanup-releases.result }}"
+          ARTIFACTS="${{ needs.cleanup-artifacts.result }}"
+
+          if [[ "$RUNS" == "failure" || "$RELEASES" == "failure" || "$ARTIFACTS" == "failure" ]]; then
+            echo "emoji=⚠️" >> $GITHUB_OUTPUT
+            echo "text=Repository Cleanup Failed" >> $GITHUB_OUTPUT
+          else
+            echo "emoji=🧹" >> $GITHUB_OUTPUT
+            echo "text=Repository Cleanup Complete" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v3.0.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "${{ steps.status.outputs.emoji }} ${{ steps.status.outputs.text }}",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Workflow Runs:*\n`${{ needs.cleanup-runs.result }}` — deleted `${{ needs.cleanup-runs.outputs.deleted || '0' }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Releases:*\n`${{ needs.cleanup-releases.result }}` — deleted `${{ needs.cleanup-releases.outputs.deleted || '0' }}`"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Artifacts:*\n`${{ needs.cleanup-artifacts.result }}` — deleted `${{ needs.cleanup-artifacts.outputs.deleted || '0' }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Kept Latest:*\n`${{ inputs.keep_latest || '2' }}`"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Mode:*\n`${{ inputs.dry_run == 'true' && 'Dry Run' || 'Live' }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Trigger:*\n`${{ github.event_name == 'schedule' && 'Scheduled (2 AM Bangladesh Time)' || github.actor }}`"
+                    }
+                  ]
+                }
+              ]
+            }
