@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy - Quick Uninstaller</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Source Sans 3", sans-serif;
+        font-weight: 400;
+        background: #f4f7fb;
+        color: #2c2c2c;
+        line-height: 1.8;
+        padding: 40px 20px 80px;
+      }
+
+      .container {
+        max-width: 780px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 2px 24px rgba(0, 0, 0, 0.07);
+        overflow: hidden;
+      }
+
+      .header {
+        background: linear-gradient(
+          135deg,
+          #0f2f3a 0%,
+          #155263 58%,
+          #1f7a8c 100%
+        );
+        padding: 44px 48px 36px;
+        position: relative;
+        overflow: hidden;
+      }
+      .header::before {
+        content: "";
+        position: absolute;
+        top: -40px;
+        right: -40px;
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .header::after {
+        content: "";
+        position: absolute;
+        bottom: -60px;
+        left: 20px;
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .header-mark {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 14px;
+        position: relative;
+        z-index: 1;
+      }
+      .header h1 {
+        font-family: "Lora", serif;
+        font-size: 28px;
+        font-weight: 700;
+        color: #ffffff;
+        letter-spacing: -0.3px;
+        margin-bottom: 6px;
+        position: relative;
+        z-index: 1;
+      }
+      .header .app-name {
+        font-size: 13px;
+        color: #c6f3ff;
+        font-weight: 500;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 18px;
+        position: relative;
+        z-index: 1;
+      }
+      .meta-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 4px;
+        position: relative;
+        z-index: 1;
+      }
+      .meta-pill {
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: #e7fbff;
+        font-size: 12px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: 500;
+      }
+
+      .body {
+        padding: 40px 48px;
+      }
+      .section {
+        margin-bottom: 40px;
+      }
+      .section-title {
+        font-family: "Lora", serif;
+        font-size: 18px;
+        font-weight: 700;
+        color: #155263;
+        margin-bottom: 14px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #cdeaf0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .section-title .num {
+        background: #155263;
+        color: #fff;
+        font-family: "Source Sans 3", sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+      }
+      .sub-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1f7a8c;
+        margin-top: 18px;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+      }
+      p {
+        font-size: 15px;
+        color: #444;
+        margin-bottom: 12px;
+      }
+      ul {
+        padding-left: 20px;
+        margin-bottom: 12px;
+      }
+      ul li {
+        font-size: 15px;
+        color: #444;
+        margin-bottom: 6px;
+      }
+      ul li::marker {
+        color: #1f7a8c;
+      }
+      strong {
+        color: #2c2c2c;
+        font-weight: 600;
+      }
+
+      .info-card {
+        background: #e8f5f8;
+        border-left: 4px solid #1f7a8c;
+        border-radius: 0 8px 8px 0;
+        padding: 14px 18px;
+        margin: 16px 0;
+        font-size: 14px;
+        color: #155263;
+      }
+      .info-card strong {
+        color: #0f2f3a;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        margin: 16px 0;
+        border-radius: 8px;
+        border: 1px solid #d7e9ee;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        min-width: 480px;
+      }
+      thead {
+        background: #155263;
+        color: #e7fbff;
+      }
+      thead th {
+        padding: 11px 14px;
+        text-align: left;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        font-size: 13px;
+      }
+      tbody tr:nth-child(even) {
+        background: #f5fbfc;
+      }
+      tbody tr:nth-child(odd) {
+        background: #ffffff;
+      }
+      tbody tr:hover {
+        background: #edf8fa;
+      }
+      tbody td {
+        padding: 10px 14px;
+        color: #444;
+        vertical-align: top;
+        border-bottom: 1px solid #e8f1f4;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      code {
+        background: #e8f5f8;
+        color: #155263;
+        font-family: "Courier New", monospace;
+        font-size: 12px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 600;
+      }
+      a {
+        color: #1f7a8c;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .note-banner {
+        background: #fff8e6;
+        border: 1px solid #ffd166;
+        border-radius: 8px;
+        padding: 14px 18px;
+        font-size: 14px;
+        color: #6b4c00;
+        margin-top: 16px;
+      }
+      .note-banner strong {
+        color: #4a3200;
+      }
+
+      .contact-card {
+        background: linear-gradient(135deg, #0f2f3a, #155263);
+        border-radius: 10px;
+        padding: 24px 28px;
+        color: #e7fbff;
+        margin-top: 10px;
+      }
+      .contact-card p {
+        color: #c6f3ff;
+        margin-bottom: 6px;
+      }
+      .contact-card a {
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 15px;
+        text-decoration: none;
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.4);
+        padding-bottom: 1px;
+      }
+
+      .footer {
+        text-align: center;
+        padding: 20px 48px 30px;
+        font-size: 12px;
+        color: #999;
+        border-top: 1px solid #eee;
+      }
+
+      @media (max-width: 600px) {
+        body {
+          padding: 20px 12px 48px;
+        }
+        .header {
+          padding: 30px 24px 24px;
+        }
+        .body {
+          padding: 28px 24px;
+        }
+        .footer {
+          padding: 16px 24px 24px;
+        }
+        .header h1 {
+          font-size: 22px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <span class="header-mark">QU</span>
+        <p class="app-name">Quick Uninstaller</p>
+        <h1>Privacy Policy</h1>
+        <div class="meta-pills">
+          <span class="meta-pill">Effective: May 30, 2026</span>
+          <span class="meta-pill">Last Updated: May 30, 2026</span>
+          <span class="meta-pill">Developer: Amatullah Tech.</span>
+        </div>
+      </div>
+
+      <div class="body">
+        <div class="section">
+          <h2 class="section-title">
+            <span class="num">INTRO</span> Introduction
+          </h2>
+          <p>
+            Welcome to Quick Uninstaller ("we," "our," or "us"). Quick
+            Uninstaller is an Android application developed by Amatullah Tech.
+            that helps users view installed apps, search and sort app lists,
+            open app details, launch apps, open Play Store pages, create
+            shortcuts, and start uninstall actions for user-installed apps.
+          </p>
+          <p>
+            This Privacy Policy explains how we collect, use, disclose, and
+            safeguard information when you use the application ("App"). By using
+            Quick Uninstaller, you agree to the collection and use of
+            information in accordance with this Privacy Policy.
+          </p>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">
+            <span class="num">01</span> Information We Collect
+          </h2>
+
+          <p class="sub-title">1.1 Installed App Information</p>
+          <p>
+            Quick Uninstaller reads installed app information from your device
+            so the App can provide its core app management features. This may
+            include:
+          </p>
+          <ul>
+            <li>
+              <strong>App name</strong> - the display name of an installed app
+            </li>
+            <li>
+              <strong>Package name</strong> - the Android package identifier of
+              an installed app
+            </li>
+            <li>
+              <strong>Version name</strong> - the installed version of an app
+            </li>
+            <li>
+              <strong>App size</strong> - the approximate size of the installed
+              app package
+            </li>
+            <li>
+              <strong>Install date</strong> - the first install time reported by
+              Android
+            </li>
+            <li><strong>App icon</strong> - the icon shown in the app list</li>
+            <li>
+              <strong>System app status</strong> - whether an app is a system
+              app or a user-installed app
+            </li>
+          </ul>
+
+          <div class="info-card">
+            <strong>Core functionality notice:</strong> The App uses broad
+            installed-app visibility because its main purpose is to show and
+            manage installed apps. Quick Uninstaller does not silently uninstall
+            apps; Android shows a confirmation screen before an uninstall action
+            is completed.
+          </div>
+
+          <p class="sub-title">1.2 Device Storage Information</p>
+          <p>
+            The App reads device storage information, such as total and
+            available storage, to show storage availability inside the app
+            manager screen.
+          </p>
+
+          <p class="sub-title">1.3 Preferences Stored on Your Device</p>
+          <p>
+            The App may store simple local preferences, such as your selected
+            sort option, so the app can remember your preferred view. These
+            preferences are stored locally on your device.
+          </p>
+
+          <p class="sub-title">
+            1.4 Automatically Collected Information Through Firebase
+          </p>
+          <p>
+            The App may use Firebase services to improve reliability, understand
+            basic usage, and deliver app notices or update information.
+            Depending on the enabled Firebase services, information may include:
+          </p>
+          <ul>
+            <li>
+              <strong>Crash logs and diagnostics</strong> collected by Firebase
+              Crashlytics
+            </li>
+            <li>
+              <strong>App usage events</strong> such as app open events
+              collected by Firebase Analytics
+            </li>
+            <li>
+              <strong>Device or other identifiers</strong> used by Firebase
+              services
+            </li>
+            <li>
+              <strong>Firebase Cloud Messaging token</strong> used for app
+              notices or notifications if messaging is enabled
+            </li>
+          </ul>
+
+          <p class="sub-title">1.5 Information We Do Not Collect</p>
+          <ul>
+            <li>We do not require users to create an account.</li>
+            <li>We do not collect usernames or passwords.</li>
+            <li>We do not collect SMS message content.</li>
+            <li>We do not collect contact lists.</li>
+            <li>We do not sell personal data.</li>
+          </ul>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">
+            <span class="num">02</span> How We Use Information
+          </h2>
+          <p>
+            We use the information described above for the following purposes:
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Purpose</th>
+                  <th>Data Used</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Display installed apps</strong></td>
+                  <td>
+                    App name, package name, version, size, install date, icon,
+                    system app status
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Search and sort apps</strong></td>
+                  <td>Installed app information and local sort preference</td>
+                </tr>
+                <tr>
+                  <td><strong>Start uninstall actions</strong></td>
+                  <td>Package name of the selected app</td>
+                </tr>
+                <tr>
+                  <td><strong>Open app details or Play Store pages</strong></td>
+                  <td>Package name of the selected app</td>
+                </tr>
+                <tr>
+                  <td><strong>Launch apps or create shortcuts</strong></td>
+                  <td>Package name, app name, and app icon</td>
+                </tr>
+                <tr>
+                  <td><strong>Show storage availability</strong></td>
+                  <td>Total and available device storage information</td>
+                </tr>
+                <tr>
+                  <td><strong>Improve reliability</strong></td>
+                  <td>Crash logs, diagnostics, and error information</td>
+                </tr>
+                <tr>
+                  <td><strong>Understand basic usage</strong></td>
+                  <td>Firebase Analytics app usage events</td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>Provide notices or update information</strong>
+                  </td>
+                  <td>
+                    Firebase Cloud Messaging token and remote notice/update data
+                    if enabled
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">
+            <span class="num">03</span> How We Share Information
+          </h2>
+
+          <p class="sub-title">3.1 Third-Party Service Providers</p>
+          <p>
+            We may share or process information with service providers that help
+            us operate, maintain, and improve the App:
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Service Provider</th>
+                  <th>Data Processed</th>
+                  <th>Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Google Firebase Analytics</strong></td>
+                  <td>App usage events and identifiers</td>
+                  <td>Understanding app usage and app open activity</td>
+                </tr>
+                <tr>
+                  <td><strong>Google Firebase Crashlytics</strong></td>
+                  <td>
+                    Crash logs, diagnostics, device/app state, stack traces
+                  </td>
+                  <td>Monitoring and improving app stability</td>
+                </tr>
+                <tr>
+                  <td><strong>Google Firebase Cloud Messaging</strong></td>
+                  <td>Messaging token and notification delivery data</td>
+                  <td>Delivering app notices or notifications if enabled</td>
+                </tr>
+                <tr>
+                  <td><strong>Google Cloud Firestore</strong></td>
+                  <td>Remote notice and app update information</td>
+                  <td>Retrieving app notices and update metadata</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="sub-title">3.2 Installed App Information</p>
+          <p>
+            Installed app information is used to provide the app manager
+            experience. We do not sell installed app information to third
+            parties. If Firebase analytics or diagnostics are enabled, related
+            events and diagnostics may be processed by Google Firebase services
+            according to Google's privacy practices.
+          </p>
+
+          <p class="sub-title">3.3 Legal Requirements</p>
+          <p>
+            We may disclose information if required to do so by law or in
+            response to valid requests by public authorities.
+          </p>
+
+          <p class="sub-title">3.4 We Do Not</p>
+          <ul>
+            <li>Sell, rent, or trade personal data.</li>
+            <li>Provide silent uninstall functionality.</li>
+            <li>Collect account passwords.</li>
+            <li>Collect contact lists or SMS message content.</li>
+          </ul>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">
+            <span class="num">04</span> Data Storage and Security
+          </h2>
+
+          <p class="sub-title">4.1 Where Data is Stored</p>
+          <ul>
+            <li>
+              <strong>On device:</strong> Installed app information is read from
+              your device to show the app list. Local preferences may be stored
+              on your device.
+            </li>
+            <li>
+              <strong>Firebase services:</strong> Analytics, crash reports,
+              messaging tokens, and remote notice/update metadata may be
+              processed by Firebase/Google services when those SDKs are enabled.
+            </li>
+          </ul>
+
+          <p class="sub-title">4.2 Security Measures</p>
+          <ul>
+            <li>
+              Network communication with Firebase and Google services uses
+              encrypted HTTPS/TLS connections.
+            </li>
+            <li>Uninstall actions use Android's standard confirmation flow.</li>
+            <li>
+              The App hides itself from the uninstall list to reduce accidental
+              self-removal.
+            </li>
+            <li>
+              System apps are not selectable for batch uninstall inside the App.
+            </li>
+          </ul>
+
+          <p class="sub-title">4.3 Data Retention</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data Type</th>
+                  <th>Retention</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Local app preferences</td>
+                  <td>
+                    Stored on your device until you clear app data or uninstall
+                    the App
+                  </td>
+                </tr>
+                <tr>
+                  <td>Installed app information shown in the UI</td>
+                  <td>Read from your device to display the current app list</td>
+                </tr>
+                <tr>
+                  <td>Firebase Analytics data</td>
+                  <td>
+                    Subject to Google Firebase retention settings and policies
+                  </td>
+                </tr>
+                <tr>
+                  <td>Firebase Crashlytics data</td>
+                  <td>
+                    Subject to Google Firebase Crashlytics retention settings
+                    and policies
+                  </td>
+                </tr>
+                <tr>
+                  <td>Firebase Messaging token</td>
+                  <td>
+                    Updated by Firebase and may persist while messaging
+                    functionality is enabled
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">
+            <span class="num">05</span> Your Rights and Choices
+          </h2>
+
+          <p class="sub-title">5.1 Control Uninstall Actions</p>
+          <p>
+            Quick Uninstaller starts Android's standard uninstall flow. You
+            remain in control and must confirm uninstall requests through
+            Android before an app is removed.
+          </p>
+
+          <p class="sub-title">5.2 Clear Local Data</p>
+          <p>
+            You can clear local app data through Android system settings. This
+            may remove local preferences such as sorting choices.
+          </p>
+
+          <p class="sub-title">5.3 Notifications</p>
+          <p>
+            If notifications are enabled on your device, you can disable them at
+            any time through Android notification settings.
+          </p>
+
+          <p class="sub-title">5.4 Data Deletion Requests</p>
+          <p>
+            You may request deletion of data associated with Firebase services
+            by contacting us at the email address in the Contact Us section.
+            Some data processed by Google Firebase services may be subject to
+            Google's retention policies and deletion processes.
+          </p>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">
+            <span class="num">06</span> Children's Privacy
+          </h2>
+          <p>
+            Quick Uninstaller is not directed to children under the age of 13.
+            We do not knowingly collect personal information from children under
+            13. If you are a parent or guardian and believe a child has provided
+            information to us, please contact us so we can take appropriate
+            action.
+          </p>
+          <div class="note-banner">
+            <strong>Recommended audience:</strong> Quick Uninstaller is a
+            utility app for users who can understand installed apps and Android
+            uninstall confirmations.
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">
+            <span class="num">07</span> Permissions We Request
+          </h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Permission</th>
+                  <th>Platform</th>
+                  <th>Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>INTERNET</code></td>
+                  <td>Android</td>
+                  <td>
+                    Used by Firebase services and to open web-based fallback
+                    links such as Play Store pages when needed
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>QUERY_ALL_PACKAGES</code></td>
+                  <td>Android</td>
+                  <td>
+                    Required for the core app manager feature to display
+                    installed apps for search, sorting, review, shortcuts, app
+                    details, Play Store links, and uninstall actions
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>REQUEST_DELETE_PACKAGES</code></td>
+                  <td>Android</td>
+                  <td>
+                    Used to start Android's standard app uninstall confirmation
+                    flow for user-selected apps
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">
+            <span class="num">08</span> Third-Party Links and Services
+          </h2>
+          <p>
+            The App may open third-party pages, such as an installed app's
+            Google Play Store listing. We are not responsible for the privacy
+            practices of third-party apps, websites, or services. We encourage
+            you to read their privacy policies.
+          </p>
+          <ul>
+            <li>
+              <a
+                href="https://policies.google.com/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Google Privacy Policy</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://firebase.google.com/support/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Firebase Privacy and Security</a
+              >
+            </li>
+          </ul>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">
+            <span class="num">09</span> International Data Transfers
+          </h2>
+          <p>
+            Information processed by Firebase or Google services may be
+            transferred to and processed in countries other than your country of
+            residence. Those services process data according to their own terms,
+            safeguards, and privacy practices.
+          </p>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">
+            <span class="num">10</span> Changes to This Privacy Policy
+          </h2>
+          <p>
+            We may update this Privacy Policy from time to time. When we make
+            changes, we will update the "Last Updated" date at the top of this
+            document. Continued use of the App after changes means you accept
+            the updated Privacy Policy.
+          </p>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title"><span class="num">11</span> Contact Us</h2>
+          <p>
+            If you have any questions, concerns, or deletion requests regarding
+            this Privacy Policy or our data practices, please contact us:
+          </p>
+          <div class="contact-card">
+            <p>Developer: Amatullah Tech</p>
+            <p>Email us at</p>
+            <a href="mailto:support@royalcourtbd.com"
+              >support@royalcourtbd.com</a
+            >
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title"><span class="num">12</span> Consent</h2>
+          <p>By using Quick Uninstaller, you consent to:</p>
+          <ul>
+            <li>
+              The use of installed app information to provide app management and
+              uninstall features.
+            </li>
+            <li>
+              The use of device storage information to show storage
+              availability.
+            </li>
+            <li>
+              The use of Firebase Analytics to understand basic app usage if
+              enabled.
+            </li>
+            <li>
+              The use of Firebase Crashlytics to collect crash logs and
+              diagnostics if enabled.
+            </li>
+            <li>
+              The use of Firebase Cloud Messaging for notices or notifications
+              if enabled.
+            </li>
+          </ul>
+          <div class="info-card">
+            <strong
+              >We do not sell, rent, or trade personal data with third
+              parties.</strong
+            >
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        This privacy policy was last updated on <strong>May 30, 2026</strong>.
+        &nbsp; Developer: Amatullah Tech.
+      </div>
+    </div>
+  </body>
+</html>
