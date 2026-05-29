@@ -1,17 +1,22 @@
-# quick_uninstaller
+# Quick Uninstaller
 
-A new Flutter project.
+Quick Uninstaller is a lightweight Android app manager built with Flutter. It helps users review installed apps, search and sort app lists, open app details, launch apps, open Play Store pages, create shortcuts, and quickly uninstall selected user-installed apps.
 
-## Getting Started
+## Core Features
 
-This project is a starting point for a Flutter application.
+- View installed user apps and system apps separately.
+- Search installed apps by name.
+- Sort apps by name, size, and install date.
+- Select multiple user apps and start uninstall actions.
+- Open app details, launch apps, and open app Play Store pages.
+- View device storage availability.
 
-A few resources to get you started if this is your first Flutter project:
+## Play Release Notes
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+This app uses broad package visibility because its core feature is installed-app management. For Google Play, complete the `QUERY_ALL_PACKAGES` declaration and keep the store listing, screenshots, and privacy policy aligned with that purpose.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Before building a Play release, copy `android/key.properties.example` to `android/key.properties`, fill in your private upload key values, and build with:
+
+```sh
+flutter build appbundle --release
+```
