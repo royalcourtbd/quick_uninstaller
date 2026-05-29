@@ -1,0 +1,375 @@
+name: Deploy to Play Store Internal Testing (No Release)
+
+on:
+  push:
+    branches:
+      - deployment
+  workflow_dispatch:
+    inputs:
+      version_override:
+        description: "Override version code (leave empty for auto-increment)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  JAVA_VERSION: "17"
+  FLUTTER_VERSION: "3.41.4"
+  NODE_VERSION: "22"
+  PACKAGE_NAME: ${{ vars.PACKAGE_NAME || 'com.amatullah.quickuninstaller' }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Record start time
+        id: start_time
+        run: echo "start=$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: "gradle"
+
+      - name: Setup Flutter ${{ env.FLUTTER_VERSION }}
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: true
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.npm
+            android/.gradle
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/pubspec.lock', '**/gradle-wrapper.properties', '**/*.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_FILE }}
+        run: |
+          set -e
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+
+      - name: Create key.properties
+        env:
+          STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          set -e
+          echo "storePassword=$STORE_PASSWORD" > android/key.properties
+          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
+          echo "storeFile=upload-keystore.jks" >> android/key.properties
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Get version code
+        id: version
+        run: |
+          set -e
+
+          if [ -n "${{ github.event.inputs.version_override }}" ]; then
+            NEW_CODE="${{ github.event.inputs.version_override }}"
+            echo "Using manual version override: $NEW_CODE"
+            echo "build_number=$NEW_CODE" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo '${{ secrets.PLAY_STORE_JSON_KEY }}' > service-account.json
+          npm install googleapis --silent
+
+          PLAY_STORE_CODE=$(node -e "
+            const { google } = require('googleapis');
+            (async () => {
+              try {
+                const auth = new google.auth.GoogleAuth({
+                  keyFile: 'service-account.json',
+                  scopes: ['https://www.googleapis.com/auth/androidpublisher'],
+                });
+                const androidPublisher = google.androidpublisher({ version: 'v3', auth });
+                const packageName = '${{ env.PACKAGE_NAME }}';
+
+                const { data: { id: editId } } = await androidPublisher.edits.insert({ packageName });
+
+                const tracks = ['internal', 'alpha', 'beta', 'production'];
+                let max = 0;
+
+                for (const track of tracks) {
+                  try {
+                    const { data: { releases = [] } } = await androidPublisher.edits.tracks.get({
+                      packageName, editId, track,
+                    });
+                    console.error(\`Checked \${track}: \${releases.length} releases\`);
+                    for (const r of releases) {
+                      for (const c of (r.versionCodes || [])) {
+                        const n = parseInt(c, 10);
+                        if (n > max) {
+                          max = n;
+                          console.error(\`  New max from \${track}: \${n}\`);
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    console.error(\`Skipping track: \${track} (\${e.message})\`);
+                  }
+                }
+
+                await androidPublisher.edits.delete({ packageName, editId });
+                process.stdout.write(String(max));
+              } catch (e) {
+                console.error(e.message);
+                process.exit(1);
+              }
+            })();
+          " || echo "0")
+
+          PUBSPEC_CODE=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f2 || echo "0")
+          GIT_COMMIT_COUNT=$(git rev-list --count HEAD)
+
+          if [ -n "$PUBSPEC_CODE" ] && [ "$PUBSPEC_CODE" != "null" ] && [ "$PUBSPEC_CODE" -gt 0 ]; then
+            FALLBACK_CODE="$PUBSPEC_CODE"
+          else
+            FALLBACK_CODE="$GIT_COMMIT_COUNT"
+          fi
+
+          if [ "$PLAY_STORE_CODE" -gt 0 ]; then
+            if [ "$PLAY_STORE_CODE" -gt "$FALLBACK_CODE" ]; then
+              LATEST_CODE="$PLAY_STORE_CODE"
+            else
+              LATEST_CODE="$FALLBACK_CODE"
+            fi
+          else
+            LATEST_CODE="$FALLBACK_CODE"
+          fi
+
+          NEW_CODE=$((LATEST_CODE + 1))
+          echo "build_number=$NEW_CODE" >> $GITHUB_OUTPUT
+          echo "New version code: $NEW_CODE"
+          rm -f service-account.json
+
+      - name: Build AAB
+        run: |
+          flutter build appbundle --release \
+            --obfuscate --split-debug-info=build/app/outputs/symbols \
+            --build-number=${{ steps.version.outputs.build_number }}
+
+      - name: Clean up old debug symbol artifacts
+        uses: actions/github-script@v9
+        continue-on-error: true
+        with:
+          script: |
+            const { data: { artifacts } } = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            const symbolArtifacts = artifacts.filter(a => a.name.startsWith('debug-symbols-'));
+            console.log(`Found ${symbolArtifacts.length} debug-symbol artifacts`);
+            for (const artifact of symbolArtifacts) {
+              console.log(`Deleting: ${artifact.name} (${artifact.id})`);
+              await github.rest.actions.deleteArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: artifact.id,
+              });
+            }
+
+      - name: Upload debug symbols as artifact
+        uses: actions/upload-artifact@v7
+        continue-on-error: true
+        with:
+          name: debug-symbols-${{ steps.version.outputs.build_number }}
+          path: build/app/outputs/symbols/
+          retention-days: 15
+
+      - name: Upload debug symbols to Firebase Crashlytics
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          npm install -g firebase-tools
+          export GOOGLE_APPLICATION_CREDENTIALS="firebase-sa.json"
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > firebase-sa.json
+          firebase crashlytics:symbols:upload \
+            --app=${{ secrets.FIREBASE_APP_ID }} \
+            build/app/outputs/symbols/
+          rm -f firebase-sa.json
+
+      - name: Verify AAB
+        id: aab_info
+        run: |
+          if [ ! -f "build/app/outputs/bundle/release/app-release.aab" ]; then
+            echo "AAB file not found!"
+            exit 1
+          fi
+          AAB_SIZE=$(du -h build/app/outputs/bundle/release/app-release.aab | cut -f1)
+          echo "AAB built successfully ($AAB_SIZE)"
+          echo "aab_size=$AAB_SIZE" >> $GITHUB_OUTPUT
+
+      - name: Get app info
+        id: app_info
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d '+' -f 1)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate Play Store release notes
+        run: |
+          mkdir -p whatsnew
+
+          if [ -f "whatsnew/whatsnew-en-US" ]; then
+            echo "Using manual What's New (en-US) from repo"
+          else
+            PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [ -n "$PREVIOUS_TAG" ]; then
+              git log "$PREVIOUS_TAG"..HEAD --oneline --pretty=format:"- %s" | head -c 500 > whatsnew/whatsnew-en-US
+            else
+              echo "- Initial release" > whatsnew/whatsnew-en-US
+            fi
+          fi
+
+          if [ -f "whatsnew/whatsnew-bn-BD" ]; then
+            echo "Using manual What's New (bn-BD) from repo"
+          else
+            cp whatsnew/whatsnew-en-US whatsnew/whatsnew-bn-BD
+          fi
+
+      - name: Upload to Play Store Internal Testing
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_JSON_KEY }}
+          packageName: ${{ env.PACKAGE_NAME }}
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          tracks: internal
+          status: completed
+          whatsNewDirectory: whatsnew/
+
+      - name: Calculate build duration
+        if: always()
+        id: duration
+        run: |
+          set -e
+          END_TIME=$(date +%s)
+          START_TIME=${{ steps.start_time.outputs.start }}
+          DURATION=$((END_TIME - START_TIME))
+          MINUTES=$((DURATION / 60))
+          SECONDS=$((DURATION % 60))
+          echo "time=${MINUTES}m ${SECONDS}s" >> $GITHUB_OUTPUT
+
+      - name: Format build date
+        if: always()
+        id: build_date
+        run: |
+          BUILD_DATE=$(TZ='Asia/Dhaka' date +'%d %B %Y - %l:%M%p' | sed 's/AM/am/g; s/PM/pm/g; s/  / /g')
+          echo "BUILD_DATE=$BUILD_DATE" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v3.0.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "${{ job.status == 'success' && 'Quick Uninstaller Internal Deploy' || 'Quick Uninstaller Internal Deploy Failed' }}",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Version:*\n`${{ steps.app_info.outputs.version || 'N/A' }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Build Number:*\n`${{ steps.version.outputs.build_number || 'N/A' }}`"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*AAB Size:*\n`${{ steps.aab_info.outputs.aab_size || 'N/A' }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Build Time:*\n`${{ steps.duration.outputs.time || 'N/A' }}`"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Status:*\n`${{ job.status }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Triggered by:*\n`${{ github.actor }}`"
+                    }
+                  ]
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "Build Date: ${{ steps.build_date.outputs.BUILD_DATE || 'N/A' }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Play Store",
+                        "emoji": true
+                      },
+                      "url": "https://play.google.com/store/apps/details?id=${{ env.PACKAGE_NAME }}",
+                      "style": "primary"
+                    }
+                  ]
+                }
+              ]
+            }
