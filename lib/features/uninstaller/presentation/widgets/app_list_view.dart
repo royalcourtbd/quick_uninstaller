@@ -27,9 +27,19 @@ class AppListView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (apps.isEmpty) {
       return Center(
-        child: Text(
-          hasSearchQuery ? 'No apps found' : 'No apps',
-          style: TextStyle(color: context.color.subTitleColor, fontSize: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.android, color: context.color.subTitleColor, size: 72),
+            const SizedBox(height: 12),
+            Text(
+              hasSearchQuery ? 'No apps found' : 'No apps',
+              style: TextStyle(
+                color: context.color.subTitleColor,
+                fontSize: 16,
+              ),
+            ),
+          ],
         ),
       );
     }
