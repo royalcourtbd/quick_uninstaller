@@ -44,7 +44,7 @@ Future<String> getApplicationDirectoryPath() async {
 }
 
 String get suitableAppStoreUrl =>
-    Platform.isAndroid ? playStoreUrl : appStoreUrl;
+    Platform.isAndroid ? playStoreUrl : playStoreUrl;
 
 void closeKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
 // Future<void> disposeKeyboard(

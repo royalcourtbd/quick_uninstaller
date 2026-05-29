@@ -1,7 +1,5 @@
 import 'dart:io';
-
 import 'package:quick_uninstaller/core/services/throttle_service.dart';
-import 'package:quick_uninstaller/core/static/constants.dart';
 import 'package:quick_uninstaller/core/utility/logger_utility.dart';
 import 'package:quick_uninstaller/core/utility/navigation_helpers.dart';
 import 'package:quick_uninstaller/core/utility/number_utility.dart';
@@ -22,17 +20,6 @@ const String _fileName = "launcher_service.dart";
 ///
 /// If the URL can be launched, it opens the Facebook page in the Facebook app,
 /// otherwise, it opens the fallback URL in a browser.
-Future<void> launchFacebookPage() async {
-  final String fbProtocolUrl = Platform.isIOS
-      ? 'fb://profile/153267368647572'
-      : 'fb://page/579001025294960';
-  await openUrl(url: fbProtocolUrl, fallbackUrl: facebookPageUrl);
-}
-
-Future<void> launchFacebookGroup() async {
-  const String fbProtocolUrl = 'fb://group/irdofficial';
-  await openUrl(url: fbProtocolUrl, fallbackUrl: facebookGroupUrl);
-}
 
 Future<void> launchYoutube() async {
   const String channelId = 'UCnVaqAxLkEz9uCqkvJlPK8A';
@@ -43,10 +30,6 @@ Future<void> launchYoutube() async {
   await openUrl(url: youtubeProtocolUrl, fallbackUrl: fallbackUrl);
 }
 
-Future<void> launchTwitter() async {
-  await launchUrl(Uri.parse(twitterUrl));
-}
-
 Future<void> launchLinkedInProfile() async {
   const String companyId = "oratiq";
 
@@ -54,16 +37,6 @@ Future<void> launchLinkedInProfile() async {
   const String fallbackUrl = 'https://www.linkedin.com/company/$companyId/';
 
   await openUrl(url: linkedInProtocolUrl, fallbackUrl: fallbackUrl);
-}
-
-Future<void> launchMessenger() async {
-  const String facebookId = "153267368647572";
-
-  final String fbProtocolUrl = Platform.isAndroid
-      ? 'fb-messenger://user/$facebookId'
-      : 'https://m.me/$facebookId';
-
-  await openUrl(url: fbProtocolUrl, fallbackUrl: facebookPageUrl);
 }
 
 /// Opens a URL asynchronously with optional fallback URL.
