@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:quick_uninstaller/core/base/base_presenter.dart';
 import 'package:quick_uninstaller/core/services/local_cache_service.dart';
 import 'package:quick_uninstaller/core/utility/navigation_helpers.dart';
@@ -21,15 +23,20 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   String? _singleUninstallTarget;
   final List<String> _batchQueue = [];
   int _batchSuccessCount = 0;
+  StreamSubscription<String>? _packageRemovedSubscription;
 
-  final Obs<UninstallerUiState> uiState =
-      Obs<UninstallerUiState>(UninstallerUiState.empty());
+  final Obs<UninstallerUiState> uiState = Obs<UninstallerUiState>(
+    UninstallerUiState.empty(),
+  );
   UninstallerUiState get currentUiState => uiState.value;
 
   @override
   void onInit() {
     super.onInit();
     _loadSavedSortType();
+    _packageRemovedSubscription = _localDataSource.packageRemovedStream.listen(
+      _onPackageRemoved,
+    );
     loadApps();
     _loadMemoryInfo();
   }
@@ -37,17 +44,20 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   // --- Load Apps ---
 
   Future<void> loadApps() async {
+    await _loadApps(showLoading: true);
+  }
+
+  Future<void> _loadApps({required bool showLoading}) async {
     await parseDataFromEitherWithUserMessage(
       task: () => _getInstalledAppsUseCase.execute(),
-      showLoading: true,
+      showLoading: showLoading,
       onDataLoaded: (apps) {
         // Hide this app from the list — users should not uninstall themselves.
         const ownPackage = 'com.amatullah.quickuninstaller';
         final sortType = currentUiState.sortType;
         final userApps = _applySortTo(
           apps
-              .where((app) =>
-                  !app.isSystemApp && app.packageName != ownPackage)
+              .where((app) => !app.isSystemApp && app.packageName != ownPackage)
               .toList(),
           sortType,
         );
@@ -55,10 +65,15 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
           apps.where((app) => app.isSystemApp).toList(),
           sortType,
         );
+        final visibleUserPackages = userApps.map((a) => a.packageName).toSet();
+        final selectedPackages = currentUiState.selectedPackages
+            .where(visibleUserPackages.contains)
+            .toSet();
 
         uiState.value = currentUiState.copyWith(
           userApps: userApps,
           systemApps: systemApps,
+          selectedPackages: selectedPackages,
         );
       },
     );
@@ -108,11 +123,13 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     final list = List<AppInfoEntity>.from(apps);
     switch (type) {
       case SortType.nameAsc:
-        list.sort((a, b) =>
-            a.appName.toLowerCase().compareTo(b.appName.toLowerCase()));
+        list.sort(
+          (a, b) => a.appName.toLowerCase().compareTo(b.appName.toLowerCase()),
+        );
       case SortType.nameDesc:
-        list.sort((a, b) =>
-            b.appName.toLowerCase().compareTo(a.appName.toLowerCase()));
+        list.sort(
+          (a, b) => b.appName.toLowerCase().compareTo(a.appName.toLowerCase()),
+        );
       case SortType.sizeDesc:
         list.sort((a, b) => b.appSize.compareTo(a.appSize));
       case SortType.sizeAsc:
@@ -132,8 +149,9 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     if (currentUiState.isUninstalling) return;
 
     // System apps cannot be uninstalled, so they must not be selectable.
-    final isSystem = currentUiState.systemApps
-        .any((app) => app.packageName == packageName);
+    final isSystem = currentUiState.systemApps.any(
+      (app) => app.packageName == packageName,
+    );
     if (isSystem) return;
 
     final selected = Set<String>.from(currentUiState.selectedPackages);
@@ -161,8 +179,9 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     if (currentUiState.isUninstalling) return;
     // Only user apps can be selected; system apps cannot be uninstalled.
     if (currentUiState.selectedTabIndex != 0) return;
-    final allPackages =
-        currentUiState.filteredUserApps.map((a) => a.packageName).toSet();
+    final allPackages = currentUiState.filteredUserApps
+        .map((a) => a.packageName)
+        .toSet();
     uiState.value = currentUiState.copyWith(selectedPackages: allPackages);
   }
 
@@ -212,8 +231,9 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   Future<void> uninstallSelectedApps() async {
     // Defensively drop any system apps so the batch never tries to uninstall
     // something the OS will reject.
-    final systemPackages =
-        currentUiState.systemApps.map((a) => a.packageName).toSet();
+    final systemPackages = currentUiState.systemApps
+        .map((a) => a.packageName)
+        .toSet();
     final packages = currentUiState.selectedPackages
         .where((p) => !systemPackages.contains(p))
         .toList();
@@ -226,10 +246,10 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
       uninstallProgress: 0,
       uninstallTotal: packages.length,
     );
-    _fireNextInQueue();
+    await _fireNextInQueue();
   }
 
-  void _fireNextInQueue() {
+  Future<void> _fireNextInQueue() async {
     if (_batchQueue.isEmpty) {
       uiState.value = currentUiState.copyWith(
         isUninstalling: false,
@@ -242,7 +262,7 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     _pendingUninstallCheck = true;
     _singleUninstallTarget = next;
     try {
-      _localDataSource.uninstallApp(next);
+      await _localDataSource.uninstallApp(next);
     } catch (_) {}
   }
 
@@ -263,8 +283,24 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     _loadMemoryInfo();
   }
 
+  void _onPackageRemoved(String packageName) {
+    if (currentUiState.userApps.any((a) => a.packageName == packageName) ||
+        currentUiState.systemApps.any((a) => a.packageName == packageName) ||
+        currentUiState.selectedPackages.contains(packageName)) {
+      _removeAppFromCache(packageName);
+    }
+  }
+
+  Future<void> _refreshAfterPackageChanges() async {
+    await _loadApps(showLoading: false);
+    await _loadMemoryInfo();
+  }
+
   Future<void> onAppResumed() async {
-    if (!_pendingUninstallCheck) return;
+    if (!_pendingUninstallCheck) {
+      await _refreshAfterPackageChanges();
+      return;
+    }
     _pendingUninstallCheck = false;
 
     final target = _singleUninstallTarget;
@@ -273,7 +309,12 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     bool wasRemoved = false;
     if (target != null) {
       final installed = await _localDataSource.isAppInstalled(target);
-      wasRemoved = !installed;
+      if (!installed) {
+        wasRemoved = true;
+      } else {
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+        wasRemoved = !await _localDataSource.isAppInstalled(target);
+      }
     }
 
     final isBatch = currentUiState.uninstallTotal > 0;
@@ -293,7 +334,7 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
 
     // If batch queue has more items, fire next
     if (_batchQueue.isNotEmpty) {
-      _fireNextInQueue();
+      await _fireNextInQueue();
       return;
     }
 
@@ -302,27 +343,34 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
       final total = currentUiState.uninstallTotal;
       final skipped = total - _batchSuccessCount;
       uiState.value = currentUiState.copyWith(
+        selectedPackages: {},
         isUninstalling: false,
         uninstallProgress: 0,
         uninstallTotal: 0,
       );
+      await _refreshAfterPackageChanges();
       if (_batchSuccessCount == 0) {
         addUserMessage('No apps were uninstalled');
       } else if (skipped == 0) {
         final s = _batchSuccessCount == 1 ? '' : 's';
         addUserMessage('$_batchSuccessCount app$s uninstalled');
       } else {
-        addUserMessage(
-          '$_batchSuccessCount uninstalled, $skipped skipped',
-        );
+        addUserMessage('$_batchSuccessCount uninstalled, $skipped skipped');
       }
       _batchSuccessCount = 0;
     } else {
       uiState.value = currentUiState.copyWith(isUninstalling: false);
+      await _refreshAfterPackageChanges();
       if (!wasRemoved) {
         addUserMessage('Uninstall cancelled');
       }
     }
+  }
+
+  @override
+  void onClose() {
+    _packageRemovedSubscription?.cancel();
+    super.onClose();
   }
 
   @override

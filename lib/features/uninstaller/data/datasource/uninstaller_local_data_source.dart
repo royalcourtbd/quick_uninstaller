@@ -1,12 +1,38 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:quick_uninstaller/features/uninstaller/domain/entities/app_info_entity.dart';
 
 class UninstallerLocalDataSource {
-  static const MethodChannel _channel =
-      MethodChannel('com.amatullah.quickuninstaller/apps');
+  static const MethodChannel _channel = MethodChannel(
+    'com.amatullah.quickuninstaller/apps',
+  );
+
+  final StreamController<String> _packageRemovedController =
+      StreamController<String>.broadcast();
+
+  UninstallerLocalDataSource() {
+    _channel.setMethodCallHandler(_handleNativeMethodCall);
+  }
+
+  Stream<String> get packageRemovedStream => _packageRemovedController.stream;
+
+  Future<void> _handleNativeMethodCall(MethodCall call) async {
+    if (call.method != 'packageRemoved') return;
+
+    final arguments = call.arguments;
+    if (arguments is! Map) return;
+
+    final packageName = arguments['packageName'];
+    if (packageName is String && packageName.isNotEmpty) {
+      _packageRemovedController.add(packageName);
+    }
+  }
 
   Future<List<AppInfoEntity>> getInstalledApps() async {
-    final List<dynamic> result = await _channel.invokeMethod('getInstalledApps');
+    final List<dynamic> result = await _channel.invokeMethod(
+      'getInstalledApps',
+    );
 
     return result.map((app) {
       final Map<String, dynamic> map = Map<String, dynamic>.from(app as Map);
@@ -27,8 +53,9 @@ class UninstallerLocalDataSource {
   }
 
   Future<Map<String, int>> getMemoryInfo() async {
-    final Map<dynamic, dynamic> result =
-        await _channel.invokeMethod('getMemoryInfo');
+    final Map<dynamic, dynamic> result = await _channel.invokeMethod(
+      'getMemoryInfo',
+    );
     return {
       'totalBytes': (result['totalBytes'] as num).toInt(),
       'freeBytes': (result['freeBytes'] as num).toInt(),
@@ -36,50 +63,44 @@ class UninstallerLocalDataSource {
   }
 
   Future<bool> launchApp(String packageName) async {
-    final result = await _channel.invokeMethod<bool>(
-      'launchApp',
-      {'packageName': packageName},
-    );
+    final result = await _channel.invokeMethod<bool>('launchApp', {
+      'packageName': packageName,
+    });
     return result ?? false;
   }
 
   Future<bool> openAppDetails(String packageName) async {
-    final result = await _channel.invokeMethod<bool>(
-      'openAppDetails',
-      {'packageName': packageName},
-    );
+    final result = await _channel.invokeMethod<bool>('openAppDetails', {
+      'packageName': packageName,
+    });
     return result ?? false;
   }
 
   Future<bool> openInPlayStore(String packageName) async {
-    final result = await _channel.invokeMethod<bool>(
-      'openInPlayStore',
-      {'packageName': packageName},
-    );
+    final result = await _channel.invokeMethod<bool>('openInPlayStore', {
+      'packageName': packageName,
+    });
     return result ?? false;
   }
 
   Future<bool> addShortcut(String packageName) async {
-    final result = await _channel.invokeMethod<bool>(
-      'addShortcut',
-      {'packageName': packageName},
-    );
+    final result = await _channel.invokeMethod<bool>('addShortcut', {
+      'packageName': packageName,
+    });
     return result ?? false;
   }
 
   Future<bool> uninstallApp(String packageName) async {
-    final result = await _channel.invokeMethod<bool>(
-      'uninstallApp',
-      {'packageName': packageName},
-    );
+    final result = await _channel.invokeMethod<bool>('uninstallApp', {
+      'packageName': packageName,
+    });
     return result ?? false;
   }
 
   Future<bool> isAppInstalled(String packageName) async {
-    final result = await _channel.invokeMethod<bool>(
-      'isAppInstalled',
-      {'packageName': packageName},
-    );
+    final result = await _channel.invokeMethod<bool>('isAppInstalled', {
+      'packageName': packageName,
+    });
     return result ?? false;
   }
 }

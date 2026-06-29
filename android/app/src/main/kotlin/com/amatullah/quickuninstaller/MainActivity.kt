@@ -1,8 +1,10 @@
 package com.amatullah.quickuninstaller
 
 import android.app.ActivityManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -27,12 +29,16 @@ import java.io.File
 class MainActivity : FlutterActivity() {
     private val channel = "com.amatullah.quickuninstaller/apps"
     private val ICON_SIZE = 96
+    private var methodChannel: MethodChannel? = null
+    private var packageRemovedReceiver: BroadcastReceiver? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel)
-            .setMethodCallHandler { call, result ->
+        methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel)
+        registerPackageRemovedReceiver()
+
+        methodChannel?.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getInstalledApps" -> {
                         Thread {
@@ -173,6 +179,41 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    override fun onDestroy() {
+        packageRemovedReceiver?.let { unregisterReceiver(it) }
+        packageRemovedReceiver = null
+        methodChannel = null
+        super.onDestroy()
+    }
+
+    private fun registerPackageRemovedReceiver() {
+        if (packageRemovedReceiver != null) return
+
+        packageRemovedReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action != Intent.ACTION_PACKAGE_REMOVED) return
+                if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return
+
+                val packageName = intent.data?.schemeSpecificPart ?: return
+                methodChannel?.invokeMethod(
+                    "packageRemoved",
+                    mapOf("packageName" to packageName)
+                )
+            }
+        }
+
+        val filter = IntentFilter(Intent.ACTION_PACKAGE_REMOVED).apply {
+            addDataScheme("package")
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(packageRemovedReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(packageRemovedReceiver, filter)
+        }
     }
 
     private fun getInstalledApps(): List<Map<String, Any?>> {
