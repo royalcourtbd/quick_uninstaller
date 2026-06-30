@@ -28,6 +28,8 @@ class UninstallerUiState extends BaseUiState {
     required this.uninstallProgress,
     required this.uninstallTotal,
     required this.sortType,
+    required this.isSystemAppsLoading,
+    required this.hasLoadedSystemApps,
   });
 
   factory UninstallerUiState.empty() {
@@ -45,6 +47,8 @@ class UninstallerUiState extends BaseUiState {
       uninstallProgress: 0,
       uninstallTotal: 0,
       sortType: SortType.nameAsc,
+      isSystemAppsLoading: false,
+      hasLoadedSystemApps: false,
     );
   }
 
@@ -59,6 +63,8 @@ class UninstallerUiState extends BaseUiState {
   final int uninstallProgress;
   final int uninstallTotal;
   final SortType sortType;
+  final bool isSystemAppsLoading;
+  final bool hasLoadedSystemApps;
 
   // Selection mode is only meaningful on the user apps tab, since system
   // apps cannot be uninstalled. Selection state is preserved across tab
@@ -92,20 +98,22 @@ class UninstallerUiState extends BaseUiState {
 
   @override
   List<Object?> get props => [
-        isLoading,
-        userMessage,
-        userApps,
-        systemApps,
-        selectedTabIndex,
-        searchQuery,
-        freeBytes,
-        totalBytes,
-        selectedPackages,
-        isUninstalling,
-        uninstallProgress,
-        uninstallTotal,
-        sortType,
-      ];
+    isLoading,
+    userMessage,
+    userApps,
+    systemApps,
+    selectedTabIndex,
+    searchQuery,
+    freeBytes,
+    totalBytes,
+    selectedPackages,
+    isUninstalling,
+    uninstallProgress,
+    uninstallTotal,
+    sortType,
+    isSystemAppsLoading,
+    hasLoadedSystemApps,
+  ];
 
   UninstallerUiState copyWith({
     bool? isLoading,
@@ -121,6 +129,8 @@ class UninstallerUiState extends BaseUiState {
     int? uninstallProgress,
     int? uninstallTotal,
     SortType? sortType,
+    bool? isSystemAppsLoading,
+    bool? hasLoadedSystemApps,
   }) {
     return UninstallerUiState(
       isLoading: isLoading ?? this.isLoading,
@@ -136,6 +146,8 @@ class UninstallerUiState extends BaseUiState {
       uninstallProgress: uninstallProgress ?? this.uninstallProgress,
       uninstallTotal: uninstallTotal ?? this.uninstallTotal,
       sortType: sortType ?? this.sortType,
+      isSystemAppsLoading: isSystemAppsLoading ?? this.isSystemAppsLoading,
+      hasLoadedSystemApps: hasLoadedSystemApps ?? this.hasLoadedSystemApps,
     );
   }
 }

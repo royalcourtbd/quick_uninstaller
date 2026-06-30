@@ -20,17 +20,25 @@ import android.os.Build
 import android.provider.Settings
 import android.os.Environment
 import android.os.StatFs
+import android.util.LruCache
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val channel = "com.amatullah.quickuninstaller/apps"
-    private val ICON_SIZE = 96
+    private val ICON_SIZE = 72
+    private val ICON_QUALITY = 75
+    private val ICON_CACHE_MAX_BYTES = 2 * 1024 * 1024
     private var methodChannel: MethodChannel? = null
     private var packageRemovedReceiver: BroadcastReceiver? = null
+    private val backgroundExecutor = Executors.newFixedThreadPool(4)
+    private val iconCache = object : LruCache<String, ByteArray>(ICON_CACHE_MAX_BYTES) {
+        override fun sizeOf(key: String, value: ByteArray): Int = value.size
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -40,15 +48,32 @@ class MainActivity : FlutterActivity() {
 
         methodChannel?.setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "getInstalledApps" -> {
-                        Thread {
+                    "getInstalledAppsMetadata" -> {
+                        val appType = call.argument<String>("appType") ?: "all"
+                        backgroundExecutor.execute {
                             try {
-                                val apps = getInstalledApps()
+                                val apps = getInstalledAppsMetadata(appType)
                                 runOnUiThread { result.success(apps) }
                             } catch (e: Exception) {
                                 runOnUiThread { result.error("ERROR", e.message, null) }
                             }
-                        }.start()
+                        }
+                    }
+                    "getAppIcon" -> {
+                        val packageName = call.argument<String>("packageName")
+                        if (packageName == null) {
+                            result.error("ERROR", "Package name is required", null)
+                            return@setMethodCallHandler
+                        }
+
+                        backgroundExecutor.execute {
+                            try {
+                                val iconBytes = getAppIconBytes(packageName)
+                                runOnUiThread { result.success(iconBytes) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("ERROR", e.message, null) }
+                            }
+                        }
                     }
                     "getMemoryInfo" -> {
                         try {
@@ -185,6 +210,7 @@ class MainActivity : FlutterActivity() {
         packageRemovedReceiver?.let { unregisterReceiver(it) }
         packageRemovedReceiver = null
         methodChannel = null
+        backgroundExecutor.shutdownNow()
         super.onDestroy()
     }
 
@@ -197,6 +223,7 @@ class MainActivity : FlutterActivity() {
                 if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return
 
                 val packageName = intent.data?.schemeSpecificPart ?: return
+                iconCache.remove(packageName)
                 methodChannel?.invokeMethod(
                     "packageRemoved",
                     mapOf("packageName" to packageName)
@@ -216,7 +243,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun getInstalledApps(): List<Map<String, Any?>> {
+    private fun getInstalledAppsMetadata(appType: String): List<Map<String, Any?>> {
         val pm = packageManager
         val packages: List<PackageInfo> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(0))
@@ -225,16 +252,22 @@ class MainActivity : FlutterActivity() {
             pm.getInstalledPackages(0)
         }
 
-        return packages.map { packageInfo ->
+        return packages.mapNotNull { packageInfo ->
             val appInfo = packageInfo.applicationInfo
             val isSystemApp = appInfo != null &&
                     (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+
+            val shouldInclude = when (appType) {
+                "user" -> !isSystemApp
+                "system" -> isSystemApp
+                else -> true
+            }
+            if (!shouldInclude) return@mapNotNull null
 
             val appName = appInfo?.let { pm.getApplicationLabel(it).toString() } ?: packageInfo.packageName
             val versionName = packageInfo.versionName ?: ""
             val appSize = getAppSize(appInfo)
             val installDate = packageInfo.firstInstallTime
-            val iconBytes = appInfo?.let { getAppIconBytes(pm, it) }
 
             mapOf(
                 "packageName" to packageInfo.packageName,
@@ -242,8 +275,7 @@ class MainActivity : FlutterActivity() {
                 "versionName" to versionName,
                 "appSize" to appSize,
                 "installDate" to installDate,
-                "isSystemApp" to isSystemApp,
-                "appIcon" to iconBytes
+                "isSystemApp" to isSystemApp
             )
         }
     }
@@ -259,18 +291,27 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun getAppIconBytes(pm: PackageManager, appInfo: ApplicationInfo): ByteArray? {
+    private fun getAppIconBytes(packageName: String): ByteArray? {
+        iconCache.get(packageName)?.let { return it }
+
         return try {
+            val appInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getApplicationInfo(packageName, 0)
+            }
+            val pm = packageManager
             val drawable: Drawable = pm.getApplicationIcon(appInfo)
             val bitmap = drawableToBitmap(drawable)
             val stream = ByteArrayOutputStream()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 80, stream)
+                bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, ICON_QUALITY, stream)
             } else {
                 @Suppress("DEPRECATION")
-                bitmap.compress(Bitmap.CompressFormat.WEBP, 80, stream)
+                bitmap.compress(Bitmap.CompressFormat.WEBP, ICON_QUALITY, stream)
             }
-            stream.toByteArray()
+            stream.toByteArray().also { iconCache.put(packageName, it) }
         } catch (e: Exception) {
             null
         }

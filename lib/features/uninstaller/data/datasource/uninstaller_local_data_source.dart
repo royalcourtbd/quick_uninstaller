@@ -29,9 +29,12 @@ class UninstallerLocalDataSource {
     }
   }
 
-  Future<List<AppInfoEntity>> getInstalledApps() async {
+  Future<List<AppInfoEntity>> getInstalledApps({
+    required String appType,
+  }) async {
     final List<dynamic> result = await _channel.invokeMethod(
-      'getInstalledApps',
+      'getInstalledAppsMetadata',
+      {'appType': appType},
     );
 
     return result.map((app) {
@@ -45,11 +48,16 @@ class UninstallerLocalDataSource {
           (map['installDate'] as num).toInt(),
         ),
         isSystemApp: map['isSystemApp'] as bool,
-        appIcon: map['appIcon'] != null
-            ? Uint8List.fromList(List<int>.from(map['appIcon'] as List))
-            : null,
+        appIcon: _bytesFromPlatformValue(map['appIcon']),
       );
     }).toList();
+  }
+
+  Future<Uint8List?> getAppIcon(String packageName) async {
+    final result = await _channel.invokeMethod<dynamic>('getAppIcon', {
+      'packageName': packageName,
+    });
+    return _bytesFromPlatformValue(result);
   }
 
   Future<Map<String, int>> getMemoryInfo() async {
@@ -102,5 +110,12 @@ class UninstallerLocalDataSource {
       'packageName': packageName,
     });
     return result ?? false;
+  }
+
+  Uint8List? _bytesFromPlatformValue(dynamic value) {
+    if (value == null) return null;
+    if (value is Uint8List) return value;
+    if (value is List) return Uint8List.fromList(List<int>.from(value));
+    return null;
   }
 }

@@ -13,6 +13,7 @@ class AppListView extends StatelessWidget {
     required this.onMoreTap,
     required this.onLongPress,
     required this.onTap,
+    required this.onIconNeeded,
   });
 
   final List<AppInfoEntity> apps;
@@ -22,6 +23,7 @@ class AppListView extends StatelessWidget {
   final void Function(AppInfoEntity app) onMoreTap;
   final void Function(String packageName) onLongPress;
   final void Function(String packageName) onTap;
+  final void Function(String packageName) onIconNeeded;
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +58,7 @@ class AppListView extends StatelessWidget {
           onMoreTap: () => onMoreTap(app),
           onLongPress: () => onLongPress(app.packageName),
           onTap: () => onTap(app.packageName),
+          onIconNeeded: () => onIconNeeded(app.packageName),
         );
       },
     );

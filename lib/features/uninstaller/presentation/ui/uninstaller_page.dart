@@ -60,6 +60,8 @@ class _UninstallerPageState extends State<UninstallerPage>
               UninstallerTabBar(
                 userAppCount: state.filteredUserApps.length,
                 systemAppCount: state.filteredSystemApps.length,
+                isSystemAppsLoading:
+                    state.isSystemAppsLoading && !state.hasLoadedSystemApps,
                 selectedTabIndex: state.selectedTabIndex,
                 onTabChanged: _presenter.changeTab,
               ),
@@ -97,6 +99,11 @@ class _UninstallerPageState extends State<UninstallerPage>
 
   Widget _buildBody(UninstallerUiState state) {
     if (state.isLoading) return const AppListShimmer();
+    if (state.selectedTabIndex == 1 &&
+        state.isSystemAppsLoading &&
+        !state.hasLoadedSystemApps) {
+      return const AppListShimmer();
+    }
 
     final apps = state.selectedTabIndex == 0
         ? state.filteredUserApps
@@ -122,6 +129,7 @@ class _UninstallerPageState extends State<UninstallerPage>
           _presenter.toggleAppSelection(packageName);
         }
       },
+      onIconNeeded: _presenter.loadAppIcon,
     );
 
     if (state.searchQuery.isNotEmpty) {

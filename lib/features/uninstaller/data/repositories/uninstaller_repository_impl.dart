@@ -8,7 +8,7 @@ class UninstallerRepositoryImpl implements UninstallerRepository {
   final UninstallerLocalDataSource _localDataSource;
 
   @override
-  Future<List<AppInfoEntity>> getInstalledApps() {
-    return _localDataSource.getInstalledApps();
+  Future<List<AppInfoEntity>> getInstalledApps({required String appType}) {
+    return _localDataSource.getInstalledApps(appType: appType);
   }
 }

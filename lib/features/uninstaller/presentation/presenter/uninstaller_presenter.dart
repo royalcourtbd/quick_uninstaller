@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:quick_uninstaller/core/base/base_presenter.dart';
 import 'package:quick_uninstaller/core/services/local_cache_service.dart';
@@ -24,6 +25,10 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   final List<String> _batchQueue = [];
   int _batchSuccessCount = 0;
   StreamSubscription<String>? _packageRemovedSubscription;
+  final Set<String> _iconRequestsInFlight = {};
+  final Map<String, DateTime> _iconRetryAfter = {};
+  static const Duration _iconRetryDelay = Duration(seconds: 5);
+  int _systemLoadGeneration = 0;
 
   final Obs<UninstallerUiState> uiState = Obs<UninstallerUiState>(
     UninstallerUiState.empty(),
@@ -44,26 +49,33 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   // --- Load Apps ---
 
   Future<void> loadApps() async {
-    await _loadApps(showLoading: true);
+    _systemLoadGeneration++;
+    uiState.value = currentUiState.copyWith(
+      systemApps: [],
+      isSystemAppsLoading: false,
+      hasLoadedSystemApps: false,
+    );
+    await _loadUserApps(showLoading: true);
+    unawaited(_loadSystemApps(forceReload: true));
   }
 
-  Future<void> _loadApps({required bool showLoading}) async {
+  Future<void> _loadUserApps({required bool showLoading}) async {
     await parseDataFromEitherWithUserMessage(
-      task: () => _getInstalledAppsUseCase.execute(),
+      task: () => _getInstalledAppsUseCase.execute(appType: 'user'),
       showLoading: showLoading,
       onDataLoaded: (apps) {
         // Hide this app from the list — users should not uninstall themselves.
         const ownPackage = 'com.amatullah.quickuninstaller';
         final sortType = currentUiState.sortType;
-        final userApps = _applySortTo(
-          apps
-              .where((app) => !app.isSystemApp && app.packageName != ownPackage)
-              .toList(),
-          sortType,
-        );
-        final systemApps = _applySortTo(
-          apps.where((app) => app.isSystemApp).toList(),
-          sortType,
+        final userApps = _mergeKnownIcons(
+          _applySortTo(
+            apps
+                .where(
+                  (app) => !app.isSystemApp && app.packageName != ownPackage,
+                )
+                .toList(),
+            sortType,
+          ),
         );
         final visibleUserPackages = userApps.map((a) => a.packageName).toSet();
         final selectedPackages = currentUiState.selectedPackages
@@ -72,11 +84,44 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
 
         uiState.value = currentUiState.copyWith(
           userApps: userApps,
-          systemApps: systemApps,
           selectedPackages: selectedPackages,
         );
       },
     );
+  }
+
+  Future<void> _loadSystemApps({bool forceReload = false}) async {
+    if (currentUiState.isSystemAppsLoading && !forceReload) return;
+    if (currentUiState.hasLoadedSystemApps && !forceReload) return;
+
+    final generation = ++_systemLoadGeneration;
+    uiState.value = currentUiState.copyWith(
+      isSystemAppsLoading: true,
+      hasLoadedSystemApps: forceReload
+          ? false
+          : currentUiState.hasLoadedSystemApps,
+    );
+
+    await parseDataFromEitherWithUserMessage(
+      task: () => _getInstalledAppsUseCase.execute(appType: 'system'),
+      onDataLoaded: (apps) {
+        if (generation != _systemLoadGeneration) return;
+        final systemApps = _mergeKnownIcons(
+          _applySortTo(
+            apps.where((app) => app.isSystemApp).toList(),
+            currentUiState.sortType,
+          ),
+        );
+        uiState.value = currentUiState.copyWith(
+          systemApps: systemApps,
+          hasLoadedSystemApps: true,
+        );
+      },
+    );
+
+    if (generation == _systemLoadGeneration) {
+      uiState.value = currentUiState.copyWith(isSystemAppsLoading: false);
+    }
   }
 
   Future<void> _loadMemoryInfo() async {
@@ -91,10 +136,83 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
 
   void changeTab(int index) {
     uiState.value = currentUiState.copyWith(selectedTabIndex: index);
+    if (index == 1) unawaited(_loadSystemApps());
   }
 
   void updateSearchQuery(String query) {
     uiState.value = currentUiState.copyWith(searchQuery: query);
+  }
+
+  Future<void> loadAppIcon(String packageName) async {
+    final app = _findLoadedApp(packageName);
+    if (app == null || app.appIcon != null) return;
+    if (_iconRequestsInFlight.contains(packageName)) {
+      return;
+    }
+    final retryAfter = _iconRetryAfter[packageName];
+    if (retryAfter != null && DateTime.now().isBefore(retryAfter)) return;
+
+    _iconRequestsInFlight.add(packageName);
+    try {
+      final icon = await _localDataSource.getAppIcon(packageName);
+      if (icon == null) {
+        _iconRetryAfter[packageName] = DateTime.now().add(_iconRetryDelay);
+        return;
+      }
+      _iconRetryAfter.remove(packageName);
+      _attachIcon(packageName, icon);
+    } catch (_) {
+      _iconRetryAfter[packageName] = DateTime.now().add(_iconRetryDelay);
+    } finally {
+      _iconRequestsInFlight.remove(packageName);
+    }
+  }
+
+  AppInfoEntity? _findLoadedApp(String packageName) {
+    for (final app in currentUiState.userApps) {
+      if (app.packageName == packageName) return app;
+    }
+    for (final app in currentUiState.systemApps) {
+      if (app.packageName == packageName) return app;
+    }
+    return null;
+  }
+
+  List<AppInfoEntity> _mergeKnownIcons(List<AppInfoEntity> apps) {
+    final iconByPackage = <String, Uint8List>{};
+    for (final app in [
+      ...currentUiState.userApps,
+      ...currentUiState.systemApps,
+    ]) {
+      final icon = app.appIcon;
+      if (icon != null) iconByPackage[app.packageName] = icon;
+    }
+
+    return apps.map((app) {
+      final icon = iconByPackage[app.packageName];
+      if (icon == null) return app;
+      return app.copyWith(appIcon: icon);
+    }).toList();
+  }
+
+  void _attachIcon(String packageName, Uint8List icon) {
+    bool changed = false;
+    final userApps = currentUiState.userApps.map((app) {
+      if (app.packageName != packageName || app.appIcon != null) return app;
+      changed = true;
+      return app.copyWith(appIcon: icon);
+    }).toList();
+    final systemApps = currentUiState.systemApps.map((app) {
+      if (app.packageName != packageName || app.appIcon != null) return app;
+      changed = true;
+      return app.copyWith(appIcon: icon);
+    }).toList();
+
+    if (!changed) return;
+    uiState.value = currentUiState.copyWith(
+      userApps: userApps,
+      systemApps: systemApps,
+    );
   }
 
   // --- Sort ---
@@ -267,6 +385,8 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   }
 
   void _removeAppFromCache(String packageName) {
+    _iconRequestsInFlight.remove(packageName);
+    _iconRetryAfter.remove(packageName);
     final userApps = currentUiState.userApps
         .where((a) => a.packageName != packageName)
         .toList();
@@ -292,7 +412,14 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   }
 
   Future<void> _refreshAfterPackageChanges() async {
-    await _loadApps(showLoading: false);
+    final shouldRefreshSystemApps =
+        currentUiState.hasLoadedSystemApps ||
+        currentUiState.selectedTabIndex == 1;
+    if (shouldRefreshSystemApps) _systemLoadGeneration++;
+    await _loadUserApps(showLoading: false);
+    if (shouldRefreshSystemApps) {
+      unawaited(_loadSystemApps(forceReload: true));
+    }
     await _loadMemoryInfo();
   }
 

@@ -3,7 +3,7 @@ import 'package:quick_uninstaller/core/utility/extensions.dart';
 import 'package:quick_uninstaller/core/utils/date_formatter.dart';
 import 'package:quick_uninstaller/features/uninstaller/domain/entities/app_info_entity.dart';
 
-class AppListTile extends StatelessWidget {
+class AppListTile extends StatefulWidget {
   const AppListTile({
     super.key,
     required this.app,
@@ -12,6 +12,7 @@ class AppListTile extends StatelessWidget {
     required this.onMoreTap,
     required this.onLongPress,
     required this.onTap,
+    required this.onIconNeeded,
   });
 
   final AppInfoEntity app;
@@ -20,6 +21,32 @@ class AppListTile extends StatelessWidget {
   final VoidCallback onMoreTap;
   final VoidCallback onLongPress;
   final VoidCallback onTap;
+  final VoidCallback onIconNeeded;
+
+  @override
+  State<AppListTile> createState() => _AppListTileState();
+}
+
+class _AppListTileState extends State<AppListTile> {
+  @override
+  void initState() {
+    super.initState();
+    _requestIconIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant AppListTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.app.packageName != widget.app.packageName ||
+        widget.app.appIcon == null) {
+      _requestIconIfNeeded();
+    }
+  }
+
+  void _requestIconIfNeeded() {
+    if (widget.app.appIcon != null) return;
+    widget.onIconNeeded();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,12 +55,14 @@ class AppListTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: isSelected
+          color: widget.isSelected
               ? context.color.accentColor.withOpacityPercent(10)
               : context.color.cardColor,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? context.color.accentColor : Colors.transparent,
+            color: widget.isSelected
+                ? context.color.accentColor
+                : Colors.transparent,
             width: .3,
           ),
         ),
@@ -42,8 +71,8 @@ class AppListTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
-            onTap: onTap,
-            onLongPress: app.isSystemApp ? null : onLongPress,
+            onTap: widget.onTap,
+            onLongPress: widget.app.isSystemApp ? null : widget.onLongPress,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
@@ -58,8 +87,8 @@ class AppListTile extends StatelessWidget {
                         color: context.color.surfaceColor,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: app.appIcon != null
-                          ? Image.memory(app.appIcon!, fit: BoxFit.cover)
+                      child: widget.app.appIcon != null
+                          ? Image.memory(widget.app.appIcon!, fit: BoxFit.cover)
                           : Icon(
                               Icons.android,
                               color: context.color.subTitleColor,
@@ -74,7 +103,7 @@ class AppListTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          app.appName,
+                          widget.app.appName,
                           style: TextStyle(
                             color: context.color.titleColor,
                             fontSize: 15,
@@ -85,7 +114,7 @@ class AppListTile extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          '${app.formattedSize}  •  ${app.versionName}',
+                          '${widget.app.formattedSize}  •  ${widget.app.versionName}',
                           style: TextStyle(
                             color: context.color.subTitleColor,
                             fontSize: 12,
@@ -96,7 +125,7 @@ class AppListTile extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           getFormattedDate(
-                            app.installDate,
+                            widget.app.installDate,
                             format: 'EEE, d MMM yyyy',
                           ),
                           style: TextStyle(
@@ -108,14 +137,14 @@ class AppListTile extends StatelessWidget {
                     ),
                   ),
                   // More button (hide in selection mode)
-                  if (!isSelectionMode)
+                  if (!widget.isSelectionMode)
                     IconButton(
                       icon: Icon(
                         Icons.more_vert,
                         color: context.color.subTitleColor,
                         size: 22,
                       ),
-                      onPressed: onMoreTap,
+                      onPressed: widget.onMoreTap,
                       splashRadius: 20,
                     ),
                 ],

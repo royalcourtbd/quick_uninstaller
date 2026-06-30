@@ -5,11 +5,15 @@ import 'package:quick_uninstaller/features/uninstaller/domain/repositories/unins
 
 class GetInstalledAppsUseCase extends BaseUseCase<List<AppInfoEntity>> {
   GetInstalledAppsUseCase(this._repository, ErrorMessageHandler handler)
-      : super(handler);
+    : super(handler);
 
   final UninstallerRepository _repository;
 
-  Future<Either<String, List<AppInfoEntity>>> execute() {
-    return mapResultToEither(() => _repository.getInstalledApps());
+  Future<Either<String, List<AppInfoEntity>>> execute({
+    required String appType,
+  }) {
+    return mapResultToEither(
+      () => _repository.getInstalledApps(appType: appType),
+    );
   }
 }

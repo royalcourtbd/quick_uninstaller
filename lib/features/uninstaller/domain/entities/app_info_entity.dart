@@ -45,5 +45,13 @@ class AppInfoEntity extends BaseEntity {
   }
 
   @override
-  List<Object?> get props => [packageName];
+  List<Object?> get props => [
+    packageName,
+    appName,
+    versionName,
+    appSize,
+    installDate,
+    isSystemApp,
+    appIcon != null,
+  ];
 }

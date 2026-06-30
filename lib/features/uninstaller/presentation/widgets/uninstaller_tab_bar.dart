@@ -6,12 +6,14 @@ class UninstallerTabBar extends StatelessWidget {
     super.key,
     required this.userAppCount,
     required this.systemAppCount,
+    required this.isSystemAppsLoading,
     required this.selectedTabIndex,
     required this.onTabChanged,
   });
 
   final int userAppCount;
   final int systemAppCount;
+  final bool isSystemAppsLoading;
   final int selectedTabIndex;
   final ValueChanged<int> onTabChanged;
 
@@ -33,7 +35,9 @@ class UninstallerTabBar extends StatelessWidget {
           ),
           _TabItem(
             icon: Icons.android,
-            label: 'SYSTEM APPS: $systemAppCount',
+            label: isSystemAppsLoading
+                ? 'SYSTEM APPS: ...'
+                : 'SYSTEM APPS: $systemAppCount',
             isSelected: selectedTabIndex == 1,
             onTap: () => onTabChanged(1),
           ),
