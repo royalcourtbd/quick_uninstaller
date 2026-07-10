@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:quick_uninstaller/core/di/service_locator.dart';
 import 'package:quick_uninstaller/core/widgets/presentable_widget_builder.dart';
 import 'package:quick_uninstaller/core/utility/extensions.dart';
-import 'package:quick_uninstaller/features/uninstaller/domain/entities/app_info_entity.dart';
 import 'package:quick_uninstaller/features/main/presentation/presenter/main_presenter.dart';
 import 'package:quick_uninstaller/features/main/presentation/widgets/double_tap_back_to_exit_app.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_presenter.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_ui_state.dart';
+import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_view_state.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/ui/about_page.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/ui/privacy_policy_page.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/widgets/app_list_shimmer.dart';
@@ -34,7 +34,7 @@ class _UninstallerPageState extends State<UninstallerPage>
   final UninstallerPresenter _presenter = locate<UninstallerPresenter>();
   final MainPresenter _mainPresenter = locate<MainPresenter>();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  UninstallerDestination _destination = UninstallerDestination.allApps;
+  UninstallerViewState _viewState = const UninstallerViewState();
 
   @override
   void initState() {
@@ -68,7 +68,7 @@ class _UninstallerPageState extends State<UninstallerPage>
             key: _scaffoldKey,
             backgroundColor: context.color.scaffoldBackgroundColor,
             drawer: UninstallerDrawer(
-              selectedDestination: _destination,
+              selectedDestination: _viewState.destination,
               formattedMemory: state.formattedFreeMemory,
               freeBytes: state.freeBytes,
               totalBytes: state.totalBytes,
@@ -80,7 +80,7 @@ class _UninstallerPageState extends State<UninstallerPage>
             body: Column(
               children: [
                 _buildAppBar(state),
-                if (_destination == UninstallerDestination.allApps)
+                if (!_viewState.isRecentlyInstalled)
                   UninstallerTabBar(
                     userAppCount: state.filteredUserApps.length,
                     systemAppCount: state.filteredSystemApps.length,
@@ -105,20 +105,22 @@ class _UninstallerPageState extends State<UninstallerPage>
 
   Widget _buildAppBar(UninstallerUiState state) {
     if (state.isSelectionMode) {
-      final visibleApps = _visibleApps(state);
+      final visibleApps = _viewState.visibleApps(state);
       return SelectionAppBar(
         selectedCount: state.selectedPackages.length,
         onClose: _presenter.clearSelection,
-        onSelectAll: _destination == UninstallerDestination.recentlyInstalled
+        onSelectAll: _viewState.isRecentlyInstalled
             ? () => _presenter.selectPackages(
                 visibleApps.map((app) => app.packageName),
               )
             : _presenter.selectAll,
       );
     }
-    final isRecent = _destination == UninstallerDestination.recentlyInstalled;
+    final isRecent = _viewState.isRecentlyInstalled;
     return UninstallerAppBar(
-      totalAppCount: isRecent ? _recentApps(state).length : state.totalAppCount,
+      totalAppCount: isRecent
+          ? _viewState.recentApps(state).length
+          : state.totalAppCount,
       title: isRecent ? 'Recently Installed' : 'Uninstaller',
       countLabel: isRecent ? 'IN LAST 30 DAYS' : 'APPS',
       showSort: !isRecent,
@@ -134,14 +136,14 @@ class _UninstallerPageState extends State<UninstallerPage>
 
   Widget _buildBody(UninstallerUiState state) {
     if (state.isLoading) return const AppListShimmer();
-    if (_destination == UninstallerDestination.allApps &&
+    if (!_viewState.isRecentlyInstalled &&
         state.selectedTabIndex == 1 &&
         state.isSystemAppsLoading &&
         !state.hasLoadedSystemApps) {
       return const AppListShimmer();
     }
 
-    final apps = _visibleApps(state);
+    final apps = _viewState.visibleApps(state);
 
     final listView = AppListView(
       apps: apps,
@@ -177,37 +179,16 @@ class _UninstallerPageState extends State<UninstallerPage>
     return listView;
   }
 
-  List<AppInfoEntity> _recentApps(UninstallerUiState state) {
-    final cutoff = DateTime.now().subtract(const Duration(days: 30));
-    final apps = state.userApps
-        .where((app) => !app.installDate.isBefore(cutoff))
-        .toList();
-    apps.sort((a, b) => b.installDate.compareTo(a.installDate));
-    return apps;
-  }
-
-  List<AppInfoEntity> _visibleApps(UninstallerUiState state) {
-    if (_destination == UninstallerDestination.recentlyInstalled) {
-      final query = state.searchQuery.trim().toLowerCase();
-      return _recentApps(state).where((app) {
-        if (query.isEmpty) return true;
-        return app.appName.toLowerCase().contains(query) ||
-            app.packageName.toLowerCase().contains(query);
-      }).toList();
-    }
-    return state.selectedTabIndex == 0
-        ? state.filteredUserApps
-        : state.filteredSystemApps;
-  }
-
   void _changeDestination(UninstallerDestination destination) {
     Navigator.pop(context);
-    if (_destination == destination) return;
+    if (_viewState.destination == destination) return;
     _presenter.clearSelection();
     if (destination == UninstallerDestination.recentlyInstalled) {
       _presenter.changeTab(0);
     }
-    setState(() => _destination = destination);
+    setState(() {
+      _viewState = _viewState.copyWith(destination: destination);
+    });
   }
 
   void _openDrawerPage(Widget page) {
@@ -227,8 +208,12 @@ class _UninstallerPageState extends State<UninstallerPage>
       return true;
     }
 
-    if (_destination == UninstallerDestination.recentlyInstalled) {
-      setState(() => _destination = UninstallerDestination.allApps);
+    if (_viewState.isRecentlyInstalled) {
+      setState(() {
+        _viewState = _viewState.copyWith(
+          destination: UninstallerDestination.allApps,
+        );
+      });
       return true;
     }
 

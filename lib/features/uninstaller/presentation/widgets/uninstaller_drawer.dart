@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:quick_uninstaller/core/utility/extensions.dart';
-
-enum UninstallerDestination { allApps, recentlyInstalled }
+import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_view_state.dart';
 
 class UninstallerDrawer extends StatelessWidget {
   const UninstallerDrawer({
