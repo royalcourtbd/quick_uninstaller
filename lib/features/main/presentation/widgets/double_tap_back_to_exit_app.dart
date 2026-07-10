@@ -16,6 +16,7 @@ class DoubleTapBackToExitApp extends StatelessWidget {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
         await mainPresenter.handleBackPress();
       },
       child: child,
