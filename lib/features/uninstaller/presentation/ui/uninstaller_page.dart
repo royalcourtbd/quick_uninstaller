@@ -59,6 +59,7 @@ class _UninstallerPageState extends State<UninstallerPage>
   Widget build(BuildContext context) {
     return DoubleTapBackToExitApp(
       mainPresenter: _mainPresenter,
+      onBackPressed: _handleBackPress,
       child: PresentableWidgetBuilder(
         presenter: _presenter,
         builder: () {
@@ -212,6 +213,26 @@ class _UninstallerPageState extends State<UninstallerPage>
   void _openDrawerPage(Widget page) {
     Navigator.pop(context);
     context.navigatorPush(page);
+  }
+
+  Future<bool> _handleBackPress() async {
+    final scaffoldState = _scaffoldKey.currentState;
+    if (scaffoldState?.isDrawerOpen ?? false) {
+      scaffoldState?.closeDrawer();
+      return true;
+    }
+
+    if (_presenter.currentUiState.isSelectionMode) {
+      _presenter.clearSelection();
+      return true;
+    }
+
+    if (_destination == UninstallerDestination.recentlyInstalled) {
+      setState(() => _destination = UninstallerDestination.allApps);
+      return true;
+    }
+
+    return false;
   }
 
   Widget _buildFab(UninstallerUiState state) {
