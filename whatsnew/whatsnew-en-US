@@ -1,3 +1,3 @@
-- Improved app list loading and refresh experience
-- Added stability improvements for uninstall actions
-- Fixed minor UI and performance issues
+- Added a banner ad at the bottom of the Uninstaller page
+- Added privacy consent support for advertising where required
+- Added remotely managed ad availability for a smoother experience
