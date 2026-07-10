@@ -303,6 +303,16 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     uiState.value = currentUiState.copyWith(selectedPackages: allPackages);
   }
 
+  void selectPackages(Iterable<String> packageNames) {
+    if (currentUiState.isUninstalling) return;
+    final userPackages = currentUiState.userApps
+        .map((app) => app.packageName)
+        .toSet();
+    uiState.value = currentUiState.copyWith(
+      selectedPackages: packageNames.where(userPackages.contains).toSet(),
+    );
+  }
+
   // --- App Actions ---
 
   Future<void> launchApp(String packageName) async {
