@@ -39,6 +39,8 @@ class BackendAsAService {
   static const String appUpdateDoc = 'app-update';
   static const String deviceTokensCollection = 'device_tokens';
   static const String isActive = 'is_active';
+  static const String configCollection = 'config';
+  static const String adUnitsDoc = 'ad_units';
 
   void _initAnalytics() {
     catchVoid(() {
@@ -77,6 +79,25 @@ class BackendAsAService {
       return docSnapshot.data();
     });
     return appUpdateInfo ?? {};
+  }
+
+  Stream<Map<String, dynamic>?> getAdUnitsStream() async* {
+    logDebugStatic(
+      'Starting Firestore listener: $configCollection/$adUnitsDoc',
+      'BackendAsAService',
+    );
+    await for (final snapshot
+        in _fireStore
+            .collection(configCollection)
+            .doc(adUnitsDoc)
+            .snapshots()) {
+      final data = snapshot.exists ? snapshot.data() : null;
+      logDebugStatic(
+        'Ad config snapshot received: exists=${snapshot.exists}, data=$data',
+        'BackendAsAService',
+      );
+      yield data;
+    }
   }
 
   Future<void> listenToDeviceToken({

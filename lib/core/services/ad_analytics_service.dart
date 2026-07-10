@@ -1,0 +1,21 @@
+import 'package:quick_uninstaller/core/services/backend_as_a_service.dart';
+
+class AdAnalyticsService {
+  final BackendAsAService _backendService;
+
+  AdAnalyticsService(this._backendService);
+
+  Future<void> logBannerAdClicked({required String adUnitId}) {
+    return _backendService.logEvent(
+      name: 'banner_ad_clicked',
+      parameters: {'ad_unit_id': adUnitId},
+    );
+  }
+
+  Future<void> logBannerAdImpression({required String adUnitId}) {
+    return _backendService.logEvent(
+      name: 'banner_ad_impression',
+      parameters: {'ad_unit_id': adUnitId},
+    );
+  }
+}

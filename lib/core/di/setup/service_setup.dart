@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:quick_uninstaller/core/di/setup/setup_module.dart';
 import 'package:quick_uninstaller/core/services/backend_as_a_service.dart';
+import 'package:quick_uninstaller/core/services/ad_analytics_service.dart';
 import 'package:quick_uninstaller/core/services/error_message_handler.dart';
 import 'package:quick_uninstaller/core/services/local_cache_service.dart';
 import 'package:quick_uninstaller/core/services/time_service.dart';
@@ -20,6 +21,9 @@ class ServiceSetup implements SetupModule {
     _serviceLocator
       ..registerLazySingleton<ErrorMessageHandler>(ErrorMessageHandlerImpl.new)
       ..registerLazySingleton<BackendAsAService>(BackendAsAService.new)
+      ..registerLazySingleton<AdAnalyticsService>(
+        () => AdAnalyticsService(_serviceLocator<BackendAsAService>()),
+      )
       ..registerLazySingleton<TimeService>(TimeService.new)
       ..registerLazySingleton<LocalCacheService>(LocalCacheService.new);
 

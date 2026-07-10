@@ -10,3 +10,6 @@ const String donationUrl = '';
 const String messengerUrl = '';
 
 const Duration defaultPageTransitionDuration = Duration(milliseconds: 370);
+
+const String testBannerAdUnitId =
+    'ca-app-pub-3940256099942544/6300978111';
