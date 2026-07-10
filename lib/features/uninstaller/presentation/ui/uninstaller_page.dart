@@ -21,6 +21,8 @@ import 'package:quick_uninstaller/features/uninstaller/presentation/widgets/sort
 import 'package:quick_uninstaller/features/uninstaller/presentation/widgets/uninstaller_app_bar.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/widgets/uninstaller_drawer.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/widgets/uninstaller_tab_bar.dart';
+import 'package:quick_uninstaller/shared/components/banner_ad_widget.dart';
+import 'package:quick_uninstaller/core/utility/logger_utility.dart';
 
 class UninstallerPage extends StatefulWidget {
   const UninstallerPage({super.key});
@@ -64,6 +66,11 @@ class _UninstallerPageState extends State<UninstallerPage>
         presenter: _presenter,
         builder: () {
           final state = _presenter.currentUiState;
+          final bannerConfig = _mainPresenter.currentUiState.bannerAdConfig;
+          logDebugStatic(
+            'Building page: bannerConfig=$bannerConfig',
+            'UninstallerPage',
+          );
           return Scaffold(
             key: _scaffoldKey,
             backgroundColor: context.color.scaffoldBackgroundColor,
@@ -90,6 +97,13 @@ class _UninstallerPageState extends State<UninstallerPage>
                     onTabChanged: _presenter.changeTab,
                   ),
                 Expanded(child: _buildBody(state)),
+                if (bannerConfig case final config? when config.isActive)
+                  BannerAdWidget(
+                    adUnitId: config.adUnitId,
+                    isTestMode: config.isTestMode,
+                    onAdClicked: _mainPresenter.onBannerAdClicked,
+                    onAdImpression: _mainPresenter.onBannerAdImpression,
+                  ),
                 MemoryBar(
                   formattedMemory: state.formattedFreeMemory,
                   totalBytes: state.totalBytes,

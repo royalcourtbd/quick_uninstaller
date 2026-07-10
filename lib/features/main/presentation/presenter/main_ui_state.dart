@@ -1,4 +1,5 @@
 import 'package:quick_uninstaller/core/base/base_ui_state.dart';
+import 'package:quick_uninstaller/features/ads/domain/entities/banner_ad_config_entity.dart';
 
 class MainUiState extends BaseUiState {
   const MainUiState({
@@ -6,6 +7,7 @@ class MainUiState extends BaseUiState {
     required super.userMessage,
     required this.selectedBottomNavIndex,
     this.lastBackPressTime,
+    this.bannerAdConfig,
   });
 
   factory MainUiState.empty() {
@@ -23,17 +25,20 @@ class MainUiState extends BaseUiState {
     userMessage,
     selectedBottomNavIndex,
     lastBackPressTime,
+    bannerAdConfig,
   ];
 
   //Add more properties to the state
   final int selectedBottomNavIndex;
   final DateTime? lastBackPressTime;
+  final BannerAdConfigEntity? bannerAdConfig;
 
   MainUiState copyWith({
     bool? isLoading,
     String? userMessage,
     int? selectedBottomNavIndex,
     DateTime? lastBackPressTime,
+    BannerAdConfigEntity? bannerAdConfig,
   }) {
     return MainUiState(
       isLoading: isLoading ?? this.isLoading,
@@ -41,6 +46,7 @@ class MainUiState extends BaseUiState {
       selectedBottomNavIndex:
           selectedBottomNavIndex ?? this.selectedBottomNavIndex,
       lastBackPressTime: lastBackPressTime ?? this.lastBackPressTime,
+      bannerAdConfig: bannerAdConfig ?? this.bannerAdConfig,
     );
   }
 }
