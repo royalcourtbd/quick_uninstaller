@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:quick_uninstaller/core/utility/extensions.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_view_state.dart';
 
@@ -11,6 +12,7 @@ class UninstallerDrawer extends StatelessWidget {
     required this.totalBytes,
     required this.onDestinationSelected,
     required this.onPrivacyPolicyTap,
+    required this.onOtherAppsTap,
     required this.onAboutTap,
   });
 
@@ -20,6 +22,7 @@ class UninstallerDrawer extends StatelessWidget {
   final int totalBytes;
   final ValueChanged<UninstallerDestination> onDestinationSelected;
   final VoidCallback onPrivacyPolicyTap;
+  final VoidCallback onOtherAppsTap;
   final VoidCallback onAboutTap;
 
   @override
@@ -40,7 +43,7 @@ class UninstallerDrawer extends StatelessWidget {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: EdgeInsets.zero,
                 children: [
                   const _SectionLabel('MANAGE'),
                   _DestinationTile(
@@ -72,6 +75,11 @@ class UninstallerDrawer extends StatelessWidget {
                     onTap: onPrivacyPolicyTap,
                   ),
                   _DestinationTile(
+                    icon: Icons.storefront_outlined,
+                    label: 'Other Apps',
+                    onTap: onOtherAppsTap,
+                  ),
+                  _DestinationTile(
                     icon: Icons.info_outline,
                     label: 'About',
                     onTap: onAboutTap,
@@ -79,18 +87,48 @@ class UninstallerDrawer extends StatelessWidget {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
+            const _AppVersion(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AppVersion extends StatelessWidget {
+  const _AppVersion();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: FutureBuilder<PackageInfo>(
+        future: PackageInfo.fromPlatform(),
+        builder: (context, snapshot) {
+          final info = snapshot.data;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
                 'Quick Uninstaller',
                 style: TextStyle(
                   color: context.color.captionColor,
                   fontSize: 12,
                 ),
               ),
-            ),
-          ],
-        ),
+              if (info != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Version ${info.version} (${info.buildNumber})',
+                  style: TextStyle(
+                    color: context.color.captionColor,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -266,7 +304,7 @@ class _DestinationTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 4),
       child: ListTile(
         minTileHeight: 50,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: const RoundedRectangleBorder(),
         selected: selected,
         selectedTileColor: context.color.accentColor.withOpacityPercent(14),
         leading: Icon(

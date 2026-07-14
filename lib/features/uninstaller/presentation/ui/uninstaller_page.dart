@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:quick_uninstaller/core/di/service_locator.dart';
+import 'package:quick_uninstaller/core/services/launcher_service.dart';
+import 'package:quick_uninstaller/core/static/urls.dart';
 import 'package:quick_uninstaller/core/widgets/presentable_widget_builder.dart';
 import 'package:quick_uninstaller/core/utility/extensions.dart';
 import 'package:quick_uninstaller/features/main/presentation/presenter/main_presenter.dart';
@@ -82,6 +84,7 @@ class _UninstallerPageState extends State<UninstallerPage>
               onDestinationSelected: _changeDestination,
               onPrivacyPolicyTap: () =>
                   _openDrawerPage(const PrivacyPolicyPage()),
+              onOtherAppsTap: _openOtherApps,
               onAboutTap: () => _openDrawerPage(const AboutPage()),
             ),
             body: Column(
@@ -208,6 +211,11 @@ class _UninstallerPageState extends State<UninstallerPage>
   void _openDrawerPage(Widget page) {
     Navigator.pop(context);
     context.navigatorPush(page);
+  }
+
+  Future<void> _openOtherApps() async {
+    Navigator.pop(context);
+    await openUrl(url: Urls.otherAppsPlayStore, fallbackUrl: Urls.otherAppsWeb);
   }
 
   Future<bool> _handleBackPress() async {
