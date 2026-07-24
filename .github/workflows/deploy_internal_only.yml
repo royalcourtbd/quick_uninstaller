@@ -16,7 +16,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name || github.run_id }}
+  group: quick-uninstaller-play-store-deploy
   cancel-in-progress: false
 
 env:
@@ -93,94 +93,262 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Get version code
+      - name: Resolve Android version
         id: version
+        env:
+          PLAY_STORE_JSON_KEY: ${{ secrets.PLAY_STORE_JSON_KEY }}
+          VERSION_CODE_OVERRIDE: ${{ inputs.version_override }}
         run: |
-          set -e
+          set -euo pipefail
+          npm install --no-save --ignore-scripts googleapis --silent
 
-          if [ -n "${{ github.event.inputs.version_override }}" ]; then
-            NEW_CODE="${{ github.event.inputs.version_override }}"
-            echo "Using manual version override: $NEW_CODE"
-            echo "build_number=$NEW_CODE" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          node <<'NODE'
+          const fs = require('fs');
+          const { execFileSync } = require('child_process');
+          const { google } = require('googleapis');
 
-          echo '${{ secrets.PLAY_STORE_JSON_KEY }}' > service-account.json
-          npm install googleapis --silent
+          const MAX_ANDROID_VERSION_CODE = 2100000000;
 
-          PLAY_STORE_CODE=$(node -e "
-            const { google } = require('googleapis');
-            (async () => {
-              try {
-                const auth = new google.auth.GoogleAuth({
-                  keyFile: 'service-account.json',
-                  scopes: ['https://www.googleapis.com/auth/androidpublisher'],
-                });
-                const androidPublisher = google.androidpublisher({ version: 'v3', auth });
-                const packageName = '${{ env.PACKAGE_NAME }}';
+          function parseVersionName(value, label) {
+            const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(value);
+            if (!match) {
+              throw new Error(`${label} must use major.minor.patch format, received: "${value}"`);
+            }
 
-                const { data: { id: editId } } = await androidPublisher.edits.insert({ packageName });
+            const parts = match.slice(1).map(Number);
+            if (parts.some(part => !Number.isSafeInteger(part))) {
+              throw new Error(`${label} contains a number that is too large: "${value}"`);
+            }
 
-                const tracks = ['internal', 'alpha', 'beta', 'production'];
-                let max = 0;
+            return {
+              raw: value,
+              major: parts[0],
+              minor: parts[1],
+              patch: parts[2],
+            };
+          }
 
-                for (const track of tracks) {
-                  try {
-                    const { data: { releases = [] } } = await androidPublisher.edits.tracks.get({
-                      packageName, editId, track,
-                    });
-                    console.error(\`Checked \${track}: \${releases.length} releases\`);
-                    for (const r of releases) {
-                      for (const c of (r.versionCodes || [])) {
-                        const n = parseInt(c, 10);
-                        if (n > max) {
-                          max = n;
-                          console.error(\`  New max from \${track}: \${n}\`);
-                        }
-                      }
-                    }
-                  } catch (e) {
-                    console.error(\`Skipping track: \${track} (\${e.message})\`);
+          function compareVersions(left, right) {
+            for (const key of ['major', 'minor', 'patch']) {
+              if (left[key] !== right[key]) {
+                return left[key] > right[key] ? 1 : -1;
+              }
+            }
+            return 0;
+          }
+
+          function parseVersionCode(value, label, allowZero = false) {
+            if (!/^\d+$/.test(String(value))) {
+              throw new Error(`${label} must be a positive integer, received: "${value}"`);
+            }
+
+            const number = Number(value);
+            const minimum = allowZero ? 0 : 1;
+            if (!Number.isSafeInteger(number) || number < minimum || number > MAX_ANDROID_VERSION_CODE) {
+              throw new Error(
+                `${label} must be between ${minimum} and ${MAX_ANDROID_VERSION_CODE}, received: "${value}"`,
+              );
+            }
+            return number;
+          }
+
+          function highestVersionCode(items) {
+            let highest = 0;
+            for (const item of items) {
+              const value = parseVersionCode(item, 'Play Store version code', true);
+              highest = Math.max(highest, value);
+            }
+            return highest;
+          }
+
+          async function main() {
+            const pubspec = fs.readFileSync('pubspec.yaml', 'utf8');
+            const versionMatch = /^version:\s*([^\s#]+)\s*(?:#.*)?$/m.exec(pubspec);
+            if (!versionMatch) {
+              throw new Error('Could not find the version field in pubspec.yaml');
+            }
+
+            const [pubspecNameRaw, pubspecCodeRaw] = versionMatch[1].split('+');
+            const pubspecVersion = parseVersionName(pubspecNameRaw, 'pubspec version');
+
+            let fallbackCode;
+            if (pubspecCodeRaw) {
+              fallbackCode = parseVersionCode(pubspecCodeRaw, 'pubspec build number');
+            } else {
+              const commitCount = execFileSync('git', ['rev-list', '--count', 'HEAD'], {
+                encoding: 'utf8',
+              }).trim();
+              fallbackCode = parseVersionCode(commitCount, 'Git commit count');
+            }
+
+            if (!process.env.PLAY_STORE_JSON_KEY) {
+              throw new Error('PLAY_STORE_JSON_KEY is not configured');
+            }
+
+            let credentials;
+            try {
+              credentials = JSON.parse(process.env.PLAY_STORE_JSON_KEY);
+            } catch {
+              throw new Error('PLAY_STORE_JSON_KEY is not valid JSON');
+            }
+
+            const auth = new google.auth.GoogleAuth({
+              credentials,
+              scopes: ['https://www.googleapis.com/auth/androidpublisher'],
+            });
+            const androidPublisher = google.androidpublisher({ version: 'v3', auth });
+            const packageName = process.env.PACKAGE_NAME;
+
+            let editId;
+            let failure;
+            let tracks = [];
+            let bundles = [];
+            let apks = [];
+
+            try {
+              const editResponse = await androidPublisher.edits.insert({ packageName });
+              editId = editResponse.data.id;
+
+              const [tracksResponse, bundlesResponse, apksResponse] = await Promise.all([
+                androidPublisher.edits.tracks.list({ packageName, editId }),
+                androidPublisher.edits.bundles.list({ packageName, editId }),
+                androidPublisher.edits.apks.list({ packageName, editId }),
+              ]);
+
+              tracks = tracksResponse.data.tracks || [];
+              bundles = bundlesResponse.data.bundles || [];
+              apks = apksResponse.data.apks || [];
+            } catch (error) {
+              failure = error;
+            } finally {
+              if (editId) {
+                try {
+                  await androidPublisher.edits.delete({ packageName, editId });
+                } catch (cleanupError) {
+                  if (failure) {
+                    console.error(`Failed to delete Play edit ${editId}: ${cleanupError.message}`);
+                  } else {
+                    failure = cleanupError;
                   }
                 }
-
-                await androidPublisher.edits.delete({ packageName, editId });
-                process.stdout.write(String(max));
-              } catch (e) {
-                console.error(e.message);
-                process.exit(1);
               }
-            })();
-          " || echo "0")
+            }
 
-          PUBSPEC_CODE=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f2 || echo "0")
-          GIT_COMMIT_COUNT=$(git rev-list --count HEAD)
+            if (failure) {
+              throw new Error(`Could not read Google Play version information: ${failure.message}`);
+            }
 
-          if [ -n "$PUBSPEC_CODE" ] && [ "$PUBSPEC_CODE" != "null" ] && [ "$PUBSPEC_CODE" -gt 0 ]; then
-            FALLBACK_CODE="$PUBSPEC_CODE"
-          else
-            FALLBACK_CODE="$GIT_COMMIT_COUNT"
-          fi
+            let highestTrackCode = 0;
+            let internalVersionCode = 0;
+            let internalVersionName = '';
 
-          if [ "$PLAY_STORE_CODE" -gt 0 ]; then
-            if [ "$PLAY_STORE_CODE" -gt "$FALLBACK_CODE" ]; then
-              LATEST_CODE="$PLAY_STORE_CODE"
-            else
-              LATEST_CODE="$FALLBACK_CODE"
-            fi
-          else
-            LATEST_CODE="$FALLBACK_CODE"
-          fi
+            for (const track of tracks) {
+              for (const release of track.releases || []) {
+                for (const code of release.versionCodes || []) {
+                  const parsedCode = parseVersionCode(code, 'Play Store version code', true);
+                  highestTrackCode = Math.max(highestTrackCode, parsedCode);
 
-          NEW_CODE=$((LATEST_CODE + 1))
-          echo "build_number=$NEW_CODE" >> $GITHUB_OUTPUT
-          echo "New version code: $NEW_CODE"
-          rm -f service-account.json
+                  if (track.track === 'internal' && parsedCode > internalVersionCode) {
+                    internalVersionCode = parsedCode;
+                    internalVersionName = (release.name || '').trim();
+                  }
+                }
+              }
+            }
+
+            const highestBundleCode = highestVersionCode(
+              bundles.map(bundle => bundle.versionCode).filter(code => code != null),
+            );
+            const highestApkCode = highestVersionCode(
+              apks.map(apk => apk.versionCode).filter(code => code != null),
+            );
+            const playStoreCode = Math.max(highestTrackCode, highestBundleCode, highestApkCode);
+
+            let nextVersionName = pubspecVersion.raw;
+            let versionDecision = 'No Internal release found; using pubspec version';
+
+            if (internalVersionCode > 0) {
+              if (!internalVersionName) {
+                throw new Error(
+                  `Internal release ${internalVersionCode} has no release name to use as versionName`,
+                );
+              }
+
+              const internalVersion = parseVersionName(
+                internalVersionName,
+                'Internal release version',
+              );
+              const comparison = compareVersions(pubspecVersion, internalVersion);
+
+              if (comparison > 0) {
+                nextVersionName = pubspecVersion.raw;
+                versionDecision = 'pubspec version is newer; using it without a patch increment';
+              } else if (
+                pubspecVersion.major === internalVersion.major &&
+                pubspecVersion.minor === internalVersion.minor
+              ) {
+                if (internalVersion.patch === Number.MAX_SAFE_INTEGER) {
+                  throw new Error(`Internal patch number is too large to increment: ${internalVersion.raw}`);
+                }
+                nextVersionName =
+                  `${internalVersion.major}.${internalVersion.minor}.${internalVersion.patch + 1}`;
+                versionDecision = 'same major/minor line; incrementing the Internal patch';
+              } else {
+                throw new Error(
+                  `Internal version ${internalVersion.raw} is ahead of pubspec version ` +
+                  `${pubspecVersion.raw} on a different major/minor line. Update pubspec.yaml first.`,
+                );
+              }
+            }
+
+            const override = (process.env.VERSION_CODE_OVERRIDE || '').trim();
+            let buildNumber;
+
+            if (override) {
+              buildNumber = parseVersionCode(override, 'Manual version code override');
+              if (buildNumber <= playStoreCode) {
+                throw new Error(
+                  `Manual version code ${buildNumber} must be greater than Play Store code ${playStoreCode}`,
+                );
+              }
+            } else {
+              buildNumber = Math.max(playStoreCode, fallbackCode) + 1;
+              if (buildNumber > MAX_ANDROID_VERSION_CODE) {
+                throw new Error(`Calculated version code exceeds ${MAX_ANDROID_VERSION_CODE}`);
+              }
+            }
+
+            fs.appendFileSync(
+              process.env.GITHUB_OUTPUT,
+              [
+                `version_name=${nextVersionName}`,
+                `build_number=${buildNumber}`,
+                `pubspec_version=${pubspecVersion.raw}`,
+                `internal_version=${internalVersionName || 'none'}`,
+                `play_store_code=${playStoreCode}`,
+                '',
+              ].join('\n'),
+            );
+
+            console.log(`Pubspec version: ${pubspecVersion.raw}`);
+            console.log(`Internal version: ${internalVersionName || 'none'}`);
+            console.log(`Version decision: ${versionDecision}`);
+            console.log(`Build versionName: ${nextVersionName}`);
+            console.log(`Highest Play Store versionCode: ${playStoreCode}`);
+            console.log(`Build versionCode: ${buildNumber}`);
+          }
+
+          main().catch(error => {
+            console.error(error.message);
+            process.exit(1);
+          });
+          NODE
 
       - name: Build AAB
         run: |
           flutter build appbundle --release \
             --obfuscate --split-debug-info=build/app/outputs/symbols \
+            --build-name=${{ steps.version.outputs.version_name }} \
             --build-number=${{ steps.version.outputs.build_number }}
 
       - name: Clean up old debug symbol artifacts
@@ -235,12 +403,6 @@ jobs:
           echo "AAB built successfully ($AAB_SIZE)"
           echo "aab_size=$AAB_SIZE" >> $GITHUB_OUTPUT
 
-      - name: Get app info
-        id: app_info
-        run: |
-          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d '+' -f 1)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: Generate Play Store release notes
         run: |
           mkdir -p whatsnew
@@ -270,6 +432,7 @@ jobs:
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
           tracks: internal
           status: completed
+          releaseName: ${{ steps.version.outputs.version_name }}
           whatsNewDirectory: whatsnew/
 
       - name: Calculate build duration
@@ -313,7 +476,7 @@ jobs:
                   "fields": [
                     {
                       "type": "mrkdwn",
-                      "text": "*Version:*\n`${{ steps.app_info.outputs.version || 'N/A' }}`"
+                      "text": "*Version:*\n`${{ steps.version.outputs.version_name || 'N/A' }}`"
                     },
                     {
                       "type": "mrkdwn",
