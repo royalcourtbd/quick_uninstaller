@@ -5,6 +5,7 @@ import 'package:quick_uninstaller/features/ads/data/repositories/ad_settings_rep
 import 'package:quick_uninstaller/features/ads/domain/datasource/ad_settings_remote_data_source.dart';
 import 'package:quick_uninstaller/features/ads/domain/repositories/ad_settings_repository.dart';
 import 'package:quick_uninstaller/features/ads/domain/use_cases/get_banner_ad_config_use_case.dart';
+import 'package:quick_uninstaller/features/ads/domain/use_cases/get_interstitial_ad_config_use_case.dart';
 
 class AdsDi {
   static Future<void> setup(GetIt serviceLocator) async {
@@ -17,6 +18,9 @@ class AdsDi {
       )
       ..registerLazySingleton<GetBannerAdConfigUseCase>(
         () => GetBannerAdConfigUseCase(locate()),
+      )
+      ..registerLazySingleton<GetInterstitialAdConfigUseCase>(
+        () => GetInterstitialAdConfigUseCase(locate()),
       );
   }
 }

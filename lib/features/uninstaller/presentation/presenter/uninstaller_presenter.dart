@@ -2,29 +2,40 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:quick_uninstaller/core/base/base_presenter.dart';
+import 'package:quick_uninstaller/core/services/interstitial_ad_service.dart';
 import 'package:quick_uninstaller/core/services/local_cache_service.dart';
+import 'package:quick_uninstaller/core/utility/logger_utility.dart';
 import 'package:quick_uninstaller/core/utility/navigation_helpers.dart';
+import 'package:quick_uninstaller/features/ads/domain/entities/interstitial_ad_config_entity.dart';
+import 'package:quick_uninstaller/features/ads/domain/use_cases/get_interstitial_ad_config_use_case.dart';
 import 'package:quick_uninstaller/features/uninstaller/data/datasource/uninstaller_local_data_source.dart';
 import 'package:quick_uninstaller/features/uninstaller/domain/entities/app_info_entity.dart';
 import 'package:quick_uninstaller/features/uninstaller/domain/usecase/get_installed_apps_use_case.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_ui_state.dart';
+import 'package:fpdart/fpdart.dart';
 
 class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   UninstallerPresenter(
     this._getInstalledAppsUseCase,
     this._localDataSource,
     this._cacheService,
+    this._interstitialAdService,
+    this._getInterstitialAdConfigUseCase,
   );
 
   final GetInstalledAppsUseCase _getInstalledAppsUseCase;
   final UninstallerLocalDataSource _localDataSource;
   final LocalCacheService _cacheService;
+  final InterstitialAdService _interstitialAdService;
+  final GetInterstitialAdConfigUseCase _getInterstitialAdConfigUseCase;
 
   bool _pendingUninstallCheck = false;
   String? _singleUninstallTarget;
   final List<String> _batchQueue = [];
   int _batchSuccessCount = 0;
   StreamSubscription<String>? _packageRemovedSubscription;
+  StreamSubscription<Either<String, InterstitialAdConfigEntity?>>?
+  _interstitialConfigSubscription;
   final Set<String> _iconRequestsInFlight = {};
   final Map<String, DateTime> _iconRetryAfter = {};
   static const Duration _iconRetryDelay = Duration(seconds: 5);
@@ -42,8 +53,37 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     _packageRemovedSubscription = _localDataSource.packageRemovedStream.listen(
       _onPackageRemoved,
     );
+    _interstitialAdService.preload();
+    _subscribeToInterstitialConfig();
     loadApps();
     _loadMemoryInfo();
+  }
+
+  void _subscribeToInterstitialConfig() {
+    _interstitialConfigSubscription = _getInterstitialAdConfigUseCase
+        .execute()
+        .listen(
+          (result) => result.fold(
+            (message) {
+              logErrorStatic(
+                'Interstitial config error: $message',
+                'UninstallerPresenter',
+              );
+            },
+            (config) {
+              if (config != null) {
+                _interstitialAdService.updateConfig(config);
+              }
+            },
+          ),
+          onError: (Object error, StackTrace stackTrace) {
+            logErrorStatic(
+              'Interstitial config subscription failed: '
+                  '$error\n$stackTrace',
+              'UninstallerPresenter',
+            );
+          },
+        );
   }
 
   // --- Load Apps ---
@@ -479,6 +519,7 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
     if (isBatch) {
       final total = currentUiState.uninstallTotal;
       final skipped = total - _batchSuccessCount;
+      final successfulUninstallCount = _batchSuccessCount;
       uiState.value = currentUiState.copyWith(
         selectedPackages: {},
         isUninstalling: false,
@@ -495,11 +536,16 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
         addUserMessage('$_batchSuccessCount uninstalled, $skipped skipped');
       }
       _batchSuccessCount = 0;
+      if (successfulUninstallCount > 0) {
+        _interstitialAdService.showAfterSuccessfulUninstall();
+      }
     } else {
       uiState.value = currentUiState.copyWith(isUninstalling: false);
       await _refreshAfterPackageChanges();
       if (!wasRemoved) {
         addUserMessage('Uninstall cancelled');
+      } else {
+        _interstitialAdService.showAfterSuccessfulUninstall();
       }
     }
   }
@@ -507,6 +553,8 @@ class UninstallerPresenter extends BasePresenter<UninstallerUiState> {
   @override
   void onClose() {
     _packageRemovedSubscription?.cancel();
+    _interstitialConfigSubscription?.cancel();
+    _interstitialAdService.dispose();
     super.onClose();
   }
 

@@ -6,6 +6,7 @@ import 'package:quick_uninstaller/core/di/setup/setup_module.dart';
 import 'package:quick_uninstaller/core/services/backend_as_a_service.dart';
 import 'package:quick_uninstaller/core/services/ad_analytics_service.dart';
 import 'package:quick_uninstaller/core/services/error_message_handler.dart';
+import 'package:quick_uninstaller/core/services/interstitial_ad_service.dart';
 import 'package:quick_uninstaller/core/services/local_cache_service.dart';
 import 'package:quick_uninstaller/core/services/time_service.dart';
 import 'package:quick_uninstaller/core/utility/trial_utility.dart';
@@ -23,6 +24,9 @@ class ServiceSetup implements SetupModule {
       ..registerLazySingleton<BackendAsAService>(BackendAsAService.new)
       ..registerLazySingleton<AdAnalyticsService>(
         () => AdAnalyticsService(_serviceLocator<BackendAsAService>()),
+      )
+      ..registerLazySingleton<InterstitialAdService>(
+        () => InterstitialAdService(_serviceLocator<AdAnalyticsService>()),
       )
       ..registerLazySingleton<TimeService>(TimeService.new)
       ..registerLazySingleton<LocalCacheService>(LocalCacheService.new);

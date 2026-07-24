@@ -18,4 +18,25 @@ class AdAnalyticsService {
       parameters: {'ad_unit_id': adUnitId},
     );
   }
+
+  Future<void> logInterstitialAdClicked({required String adUnitId}) {
+    return _backendService.logEvent(
+      name: 'interstitial_ad_clicked',
+      parameters: {'ad_unit_id': adUnitId},
+    );
+  }
+
+  Future<void> logInterstitialAdImpression({required String adUnitId}) {
+    return _backendService.logEvent(
+      name: 'interstitial_ad_impression',
+      parameters: {'ad_unit_id': adUnitId},
+    );
+  }
+
+  Future<void> logInterstitialAdDismissed({required String adUnitId}) {
+    return _backendService.logEvent(
+      name: 'interstitial_ad_dismissed',
+      parameters: {'ad_unit_id': adUnitId},
+    );
+  }
 }
