@@ -6,6 +6,7 @@ import 'package:quick_uninstaller/features/ads/domain/datasource/ad_settings_rem
 import 'package:quick_uninstaller/features/ads/domain/repositories/ad_settings_repository.dart';
 import 'package:quick_uninstaller/features/ads/domain/use_cases/get_banner_ad_config_use_case.dart';
 import 'package:quick_uninstaller/features/ads/domain/use_cases/get_interstitial_ad_config_use_case.dart';
+import 'package:quick_uninstaller/features/ads/domain/use_cases/get_native_ad_config_use_case.dart';
 import 'package:quick_uninstaller/features/ads/domain/use_cases/get_rewarded_ad_config_use_case.dart';
 
 class AdsDi {
@@ -22,6 +23,9 @@ class AdsDi {
       )
       ..registerLazySingleton<GetInterstitialAdConfigUseCase>(
         () => GetInterstitialAdConfigUseCase(locate()),
+      )
+      ..registerLazySingleton<GetNativeAdConfigUseCase>(
+        () => GetNativeAdConfigUseCase(locate()),
       )
       ..registerLazySingleton<GetRewardedAdConfigUseCase>(
         () => GetRewardedAdConfigUseCase(locate()),

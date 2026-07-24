@@ -21,3 +21,7 @@ const String testInterstitialAdUnitId =
 const String rewardedAdUnitId = 'ca-app-pub-9046297647605396/4496041528';
 
 const String testRewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
+
+const String nativeAdUnitId = 'ca-app-pub-9046297647605396/6548203808';
+
+const String testNativeAdUnitId = 'ca-app-pub-3940256099942544/2247696110';

@@ -40,6 +40,20 @@ class AdAnalyticsService {
     );
   }
 
+  Future<void> logNativeAdClicked({required String adUnitId}) {
+    return _backendService.logEvent(
+      name: 'native_ad_clicked',
+      parameters: {'ad_unit_id': adUnitId},
+    );
+  }
+
+  Future<void> logNativeAdImpression({required String adUnitId}) {
+    return _backendService.logEvent(
+      name: 'native_ad_impression',
+      parameters: {'ad_unit_id': adUnitId},
+    );
+  }
+
   Future<void> logRewardedAdClicked({required String adUnitId}) {
     return _backendService.logEvent(
       name: 'rewarded_ad_clicked',

@@ -6,7 +6,9 @@ import 'package:quick_uninstaller/core/base/base_export.dart';
 import 'package:quick_uninstaller/core/services/ad_analytics_service.dart';
 import 'package:quick_uninstaller/core/services/app_info_service.dart';
 import 'package:quick_uninstaller/features/ads/domain/entities/banner_ad_config_entity.dart';
+import 'package:quick_uninstaller/features/ads/domain/entities/native_ad_config_entity.dart';
 import 'package:quick_uninstaller/features/ads/domain/use_cases/get_banner_ad_config_use_case.dart';
+import 'package:quick_uninstaller/features/ads/domain/use_cases/get_native_ad_config_use_case.dart';
 import 'package:quick_uninstaller/features/app_update/domain/entities/app_update_config_entity.dart';
 import 'package:quick_uninstaller/features/app_update/domain/entities/update_type.dart';
 import 'package:quick_uninstaller/features/app_update/domain/use_cases/get_app_update_config_use_case.dart';
@@ -19,9 +21,13 @@ class MainPresenter extends BasePresenter<MainUiState> {
 
   final TimeService _timeService;
   final GetBannerAdConfigUseCase _getBannerAdConfigUseCase;
+  final GetNativeAdConfigUseCase _getNativeAdConfigUseCase;
   final AdAnalyticsService _adAnalyticsService;
   final GetAppUpdateConfigUseCase _getAppUpdateConfigUseCase;
-  StreamSubscription<Either<String, BannerAdConfigEntity?>>? _adSubscription;
+  StreamSubscription<Either<String, BannerAdConfigEntity?>>?
+  _bannerAdSubscription;
+  StreamSubscription<Either<String, NativeAdConfigEntity?>>?
+  _nativeAdSubscription;
   StreamSubscription<Either<String, AppUpdateConfigEntity?>>?
   _appUpdateSubscription;
   int _updateEvaluationGeneration = 0;
@@ -29,6 +35,7 @@ class MainPresenter extends BasePresenter<MainUiState> {
   MainPresenter(
     this._timeService,
     this._getBannerAdConfigUseCase,
+    this._getNativeAdConfigUseCase,
     this._adAnalyticsService,
     this._getAppUpdateConfigUseCase,
   );
@@ -38,7 +45,7 @@ class MainPresenter extends BasePresenter<MainUiState> {
     super.onInit();
     _subscribeToAppUpdateConfig();
     logDebugStatic('Subscribing to banner config', 'MainPresenter');
-    _adSubscription = _getBannerAdConfigUseCase.execute().listen(
+    _bannerAdSubscription = _getBannerAdConfigUseCase.execute().listen(
       (result) => result.fold(
         (message) {
           logErrorStatic('Banner config error: $message', 'MainPresenter');
@@ -60,6 +67,27 @@ class MainPresenter extends BasePresenter<MainUiState> {
           'MainPresenter',
         );
         addUserMessage(error.toString());
+      },
+    );
+    _subscribeToNativeAdConfig();
+  }
+
+  void _subscribeToNativeAdConfig() {
+    _nativeAdSubscription = _getNativeAdConfigUseCase.execute().listen(
+      (result) => result.fold(
+        (message) {
+          logErrorStatic('Native ad config error: $message', 'MainPresenter');
+        },
+        (config) {
+          if (config == null) return;
+          uiState.value = currentUiState.copyWith(nativeAdConfig: config);
+        },
+      ),
+      onError: (Object error, StackTrace stackTrace) {
+        logErrorStatic(
+          'Native ad subscription failed: $error\n$stackTrace',
+          'MainPresenter',
+        );
       },
     );
   }
@@ -167,6 +195,18 @@ class MainPresenter extends BasePresenter<MainUiState> {
     _adAnalyticsService.logBannerAdImpression(adUnitId: config.adUnitId);
   }
 
+  void onNativeAdClicked() {
+    final config = currentUiState.nativeAdConfig;
+    if (config == null) return;
+    _adAnalyticsService.logNativeAdClicked(adUnitId: config.adUnitId);
+  }
+
+  void onNativeAdImpression() {
+    final config = currentUiState.nativeAdConfig;
+    if (config == null) return;
+    _adAnalyticsService.logNativeAdImpression(adUnitId: config.adUnitId);
+  }
+
   void changeNavigationIndex(int index) {
     uiState.value = currentUiState.copyWith(selectedBottomNavIndex: index);
   }
@@ -198,7 +238,8 @@ class MainPresenter extends BasePresenter<MainUiState> {
   void onClose() {
     _updateEvaluationGeneration++;
     logDebugStatic('Cancelling banner config subscription', 'MainPresenter');
-    _adSubscription?.cancel();
+    _bannerAdSubscription?.cancel();
+    _nativeAdSubscription?.cancel();
     _appUpdateSubscription?.cancel();
     super.onClose();
   }

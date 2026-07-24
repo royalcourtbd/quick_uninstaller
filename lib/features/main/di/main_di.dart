@@ -19,8 +19,9 @@ class MainDi {
 
     // Presenters
     serviceLocator.registerFactory(
-      () =>
-          loadPresenter(MainPresenter(locate(), locate(), locate(), locate())),
+      () => loadPresenter(
+        MainPresenter(locate(), locate(), locate(), locate(), locate()),
+      ),
     );
   }
 }

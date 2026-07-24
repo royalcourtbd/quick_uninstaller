@@ -2,6 +2,7 @@ import 'package:quick_uninstaller/core/base/base_export.dart';
 import 'package:quick_uninstaller/features/ads/domain/datasource/ad_settings_remote_data_source.dart';
 import 'package:quick_uninstaller/features/ads/domain/entities/banner_ad_config_entity.dart';
 import 'package:quick_uninstaller/features/ads/domain/entities/interstitial_ad_config_entity.dart';
+import 'package:quick_uninstaller/features/ads/domain/entities/native_ad_config_entity.dart';
 import 'package:quick_uninstaller/features/ads/domain/entities/rewarded_ad_config_entity.dart';
 import 'package:quick_uninstaller/features/ads/domain/repositories/ad_settings_repository.dart';
 
@@ -28,6 +29,16 @@ class AdSettingsRepositoryImpl implements AdSettingsRepository {
         .map((config) => right<String, InterstitialAdConfigEntity?>(config))
         .handleError((error) {
           return left<String, InterstitialAdConfigEntity?>(error.toString());
+        });
+  }
+
+  @override
+  Stream<Either<String, NativeAdConfigEntity?>> getNativeAdConfig() {
+    return _remoteDataSource
+        .getNativeAdConfigStream()
+        .map((config) => right<String, NativeAdConfigEntity?>(config))
+        .handleError((error) {
+          return left<String, NativeAdConfigEntity?>(error.toString());
         });
   }
 

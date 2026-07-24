@@ -2,10 +2,12 @@ import 'package:quick_uninstaller/core/services/backend_as_a_service.dart';
 import 'package:quick_uninstaller/core/utility/logger_utility.dart';
 import 'package:quick_uninstaller/features/ads/data/models/banner_ad_config_model.dart';
 import 'package:quick_uninstaller/features/ads/data/models/interstitial_ad_config_model.dart';
+import 'package:quick_uninstaller/features/ads/data/models/native_ad_config_model.dart';
 import 'package:quick_uninstaller/features/ads/data/models/rewarded_ad_config_model.dart';
 import 'package:quick_uninstaller/features/ads/domain/datasource/ad_settings_remote_data_source.dart';
 import 'package:quick_uninstaller/features/ads/domain/entities/banner_ad_config_entity.dart';
 import 'package:quick_uninstaller/features/ads/domain/entities/interstitial_ad_config_entity.dart';
+import 'package:quick_uninstaller/features/ads/domain/entities/native_ad_config_entity.dart';
 import 'package:quick_uninstaller/features/ads/domain/entities/rewarded_ad_config_entity.dart';
 
 class AdSettingsRemoteDataSourceImpl implements AdSettingsRemoteDataSource {
@@ -69,6 +71,19 @@ class AdSettingsRemoteDataSourceImpl implements AdSettingsRemoteDataSource {
         .handleError((Object error, StackTrace stackTrace) {
           logErrorStatic(
             'Interstitial config stream failed: $error\n$stackTrace',
+            'AdSettingsDataSource',
+          );
+        });
+  }
+
+  @override
+  Stream<NativeAdConfigEntity?> getNativeAdConfigStream() {
+    return _backendService
+        .getAdUnitsStream()
+        .map((data) => data == null ? null : NativeAdConfigModel.fromJson(data))
+        .handleError((Object error, StackTrace stackTrace) {
+          logErrorStatic(
+            'Native ad config stream failed: $error\n$stackTrace',
             'AdSettingsDataSource',
           );
         });

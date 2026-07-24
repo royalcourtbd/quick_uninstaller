@@ -6,6 +6,7 @@ import 'package:quick_uninstaller/core/widgets/presentable_widget_builder.dart';
 import 'package:quick_uninstaller/core/utility/extensions.dart';
 import 'package:quick_uninstaller/features/main/presentation/presenter/main_presenter.dart';
 import 'package:quick_uninstaller/features/main/presentation/widgets/double_tap_back_to_exit_app.dart';
+import 'package:quick_uninstaller/features/ads/domain/entities/native_ad_config_entity.dart';
 import 'package:quick_uninstaller/features/app_update/presentation/widgets/app_update_bottom_sheet.dart';
 import 'package:quick_uninstaller/features/support/presentation/ui/developer_help_page.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_presenter.dart';
@@ -71,6 +72,7 @@ class _UninstallerPageState extends State<UninstallerPage>
         builder: () {
           final state = _presenter.currentUiState;
           final bannerConfig = _mainPresenter.currentUiState.bannerAdConfig;
+          final nativeConfig = _mainPresenter.currentUiState.nativeAdConfig;
           final appUpdateConfig = _mainPresenter.currentUiState.appUpdateConfig;
           if (_mainPresenter.shouldShowUpdateNotice &&
               appUpdateConfig != null) {
@@ -116,7 +118,7 @@ class _UninstallerPageState extends State<UninstallerPage>
                     selectedTabIndex: state.selectedTabIndex,
                     onTabChanged: _presenter.changeTab,
                   ),
-                Expanded(child: _buildBody(state)),
+                Expanded(child: _buildBody(state, nativeConfig)),
                 if (bannerConfig case final config? when config.isActive)
                   BannerAdWidget(
                     adUnitId: config.adUnitId,
@@ -168,7 +170,10 @@ class _UninstallerPageState extends State<UninstallerPage>
     );
   }
 
-  Widget _buildBody(UninstallerUiState state) {
+  Widget _buildBody(
+    UninstallerUiState state,
+    NativeAdConfigEntity? nativeAdConfig,
+  ) {
     if (state.isLoading) return const AppListShimmer();
     if (!_viewState.isRecentlyInstalled &&
         state.selectedTabIndex == 1 &&
@@ -184,6 +189,9 @@ class _UninstallerPageState extends State<UninstallerPage>
       selectedPackages: state.selectedPackages,
       isSelectionMode: state.isSelectionMode,
       hasSearchQuery: state.searchQuery.isNotEmpty,
+      nativeAdConfig: nativeAdConfig,
+      onNativeAdClicked: _mainPresenter.onNativeAdClicked,
+      onNativeAdImpression: _mainPresenter.onNativeAdImpression,
       onMoreTap: (app) => AppActionsBottomSheet.show(
         context,
         app: app,
