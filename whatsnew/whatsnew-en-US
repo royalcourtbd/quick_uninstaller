@@ -1,3 +1,5 @@
-- Added a banner ad at the bottom of the Uninstaller page
-- Added privacy consent support for advertising where required
-- Added remotely managed ad availability for a smoother experience
+- Added update notices for optional and required app releases
+- Added a Developer Help page with optional support videos and view tracking
+- Added video ads after successful single or batch uninstalls
+- Added native ads within both user and system app lists
+- Improved support-count syncing and reliability across reinstalls
