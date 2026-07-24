@@ -6,6 +6,7 @@ import 'package:quick_uninstaller/core/widgets/presentable_widget_builder.dart';
 import 'package:quick_uninstaller/core/utility/extensions.dart';
 import 'package:quick_uninstaller/features/main/presentation/presenter/main_presenter.dart';
 import 'package:quick_uninstaller/features/main/presentation/widgets/double_tap_back_to_exit_app.dart';
+import 'package:quick_uninstaller/features/app_update/presentation/widgets/app_update_bottom_sheet.dart';
 import 'package:quick_uninstaller/features/support/presentation/ui/developer_help_page.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_presenter.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_ui_state.dart';
@@ -70,6 +71,20 @@ class _UninstallerPageState extends State<UninstallerPage>
         builder: () {
           final state = _presenter.currentUiState;
           final bannerConfig = _mainPresenter.currentUiState.bannerAdConfig;
+          final appUpdateConfig = _mainPresenter.currentUiState.appUpdateConfig;
+          if (_mainPresenter.shouldShowUpdateNotice &&
+              appUpdateConfig != null) {
+            final isForceUpdate = _mainPresenter.isForceUpdate;
+            _mainPresenter.markUpdateNoticeShown();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              AppUpdateBottomSheet.show(
+                context: context,
+                config: appUpdateConfig,
+                isForceUpdate: isForceUpdate,
+              );
+            });
+          }
           logDebugStatic(
             'Building page: bannerConfig=$bannerConfig',
             'UninstallerPage',
