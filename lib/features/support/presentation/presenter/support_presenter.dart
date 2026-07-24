@@ -70,7 +70,7 @@ class SupportPresenter extends BasePresenter<SupportUiState> {
         _localCacheService.getData<int>(key: CacheKeys.supportAdWatchCount) ??
         0;
     uiState.value = currentUiState.copyWith(adWatchCount: count);
-    unawaited(_syncRemoteWatchVideoCount(count));
+    unawaited(_refreshRegisteredWatchVideoCount());
   }
 
   Future<void> _incrementAdWatchCount() async {
@@ -81,13 +81,21 @@ class SupportPresenter extends BasePresenter<SupportUiState> {
     );
     if (_isDisposed) return;
     uiState.value = currentUiState.copyWith(adWatchCount: newCount);
-    await _syncRemoteWatchVideoCount(newCount);
+    final syncedCount = await _deviceInfoService.recordRewardedAdCompleted(
+      localWatchVideoCount: newCount,
+    );
+    if (_isDisposed || syncedCount <= currentUiState.adWatchCount) return;
+
+    await _localCacheService.saveData<int>(
+      key: CacheKeys.supportAdWatchCount,
+      value: syncedCount,
+    );
+    if (_isDisposed) return;
+    uiState.value = currentUiState.copyWith(adWatchCount: syncedCount);
   }
 
-  Future<void> _syncRemoteWatchVideoCount(int count) async {
-    final syncedCount = await _deviceInfoService.syncWatchVideoCount(
-      watchVideoCount: count,
-    );
+  Future<void> _refreshRegisteredWatchVideoCount() async {
+    final syncedCount = await _deviceInfoService.getRegisteredWatchVideoCount();
     if (_isDisposed || syncedCount <= currentUiState.adWatchCount) return;
 
     await _localCacheService.saveData<int>(

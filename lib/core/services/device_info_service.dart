@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:android_id/android_id.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:quick_uninstaller/core/models/device_info_model.dart';
 import 'package:quick_uninstaller/core/services/backend_as_a_service.dart';
 import 'package:quick_uninstaller/core/services/local_cache_service.dart';
@@ -16,34 +19,65 @@ class DeviceInfoService {
   final Lock _initializeLock = Lock();
 
   bool _isInitialized = false;
+  DeviceInfoModel? _cachedDeviceInfo;
+  Future<int>? _registrationFuture;
 
   Future<void> initialize() async {
     await _initializeLock.synchronized(() async {
       if (_isInitialized) return;
+      _isInitialized = true;
 
       await catchFutureOrVoid(() async {
         await _backendService.listenToDeviceToken(
           onTokenFound: _handleTokenFound,
         );
-        _isInitialized = true;
       });
     });
   }
 
-  Future<int> syncWatchVideoCount({required int watchVideoCount}) async {
-    return await catchAndReturnFuture<int>(() async {
-          final token = _cacheService.getData<String>(
-            key: CacheKeys.fcmDeviceToken,
-          );
+  Future<int> registerDevice() {
+    return _registrationFuture ??= _registerDevice();
+  }
 
-          if (token == null || token.trim().isEmpty) {
-            await initialize();
-            return watchVideoCount;
-          }
+  Future<int> getRegisteredWatchVideoCount() async {
+    final registrationFuture = _registrationFuture;
+    if (registrationFuture != null) return registrationFuture;
+
+    return _cacheService.getData<int>(key: CacheKeys.supportAdWatchCount) ?? 0;
+  }
+
+  Future<int> _registerDevice() {
+    final watchVideoCount =
+        _cacheService.getData<int>(key: CacheKeys.supportAdWatchCount) ?? 0;
+    return _syncWatchVideoCount(
+      watchVideoCount: watchVideoCount,
+      incrementWatchVideoCount: false,
+    );
+  }
+
+  Future<int> recordRewardedAdCompleted({
+    required int localWatchVideoCount,
+  }) async {
+    return _syncWatchVideoCount(
+      watchVideoCount: localWatchVideoCount,
+      incrementWatchVideoCount: true,
+    );
+  }
+
+  Future<int> _syncWatchVideoCount({
+    required int watchVideoCount,
+    required bool incrementWatchVideoCount,
+  }) async {
+    return await catchAndReturnFuture<int>(() async {
+          unawaited(initialize());
+          final token =
+              _cacheService.getData<String>(key: CacheKeys.fcmDeviceToken) ??
+              '';
 
           return _storeDeviceInfo(
             token: token,
             watchVideoCount: watchVideoCount,
+            incrementWatchVideoCount: incrementWatchVideoCount,
           );
         }) ??
         watchVideoCount;
@@ -58,22 +92,30 @@ class DeviceInfoService {
 
       final watchVideoCount =
           _cacheService.getData<int>(key: CacheKeys.supportAdWatchCount) ?? 0;
-      await _storeDeviceInfo(token: token, watchVideoCount: watchVideoCount);
+      await _storeDeviceInfo(
+        token: token,
+        watchVideoCount: watchVideoCount,
+        incrementWatchVideoCount: false,
+      );
     });
   }
 
   Future<int> _storeDeviceInfo({
     required String token,
     required int watchVideoCount,
+    required bool incrementWatchVideoCount,
   }) async {
-    if (token.trim().isEmpty) return watchVideoCount;
-
     return await catchAndReturnFuture<int>(() async {
           final deviceInfo = await _buildDeviceInfo(
             token: token,
             watchVideoCount: watchVideoCount,
           );
-          final syncedCount = await _backendService.storeDeviceInfo(deviceInfo);
+          if (deviceInfo.documentId.isEmpty) return watchVideoCount;
+
+          final syncedCount = await _backendService.storeDeviceInfo(
+            deviceInfo,
+            incrementWatchVideoCount: incrementWatchVideoCount,
+          );
           if (syncedCount > watchVideoCount) {
             await _cacheService.saveData<int>(
               key: CacheKeys.supportAdWatchCount,
@@ -89,45 +131,73 @@ class DeviceInfoService {
     required String token,
     required int watchVideoCount,
   }) async {
+    final cachedDeviceInfo = _cachedDeviceInfo;
+    if (cachedDeviceInfo != null) {
+      return cachedDeviceInfo.copyWith(
+        token: token,
+        watchVideoCount: watchVideoCount,
+      );
+    }
+
     final deviceInfo = DeviceInfoPlugin();
+    final packageInfo = await PackageInfo.fromPlatform();
+    late final DeviceInfoModel result;
 
     if (Platform.isAndroid) {
       final androidInfo = await deviceInfo.androidInfo;
-      return DeviceInfoModel(
+      const androidIdPlugin = AndroidId();
+      final androidId = await androidIdPlugin.getId();
+      result = DeviceInfoModel(
         token: token,
         platform: 'android',
         deviceModel: androidInfo.model,
-        deviceId: androidInfo.id,
+        deviceId: androidId ?? '',
+        legacyDeviceId: androidInfo.id,
         brand: androidInfo.brand,
+        manufacturer: androidInfo.manufacturer,
         osVersion: androidInfo.version.release,
         sdkVersion: androidInfo.version.sdkInt,
         isPhysicalDevice: androidInfo.isPhysicalDevice,
+        hardware: androidInfo.hardware,
+        product: androidInfo.product,
+        deviceCodeName: androidInfo.device,
+        supportedAbis: androidInfo.supportedAbis,
+        appVersion: packageInfo.version,
+        appBuildNumber: packageInfo.buildNumber,
         watchVideoCount: watchVideoCount,
       );
-    }
-
-    if (Platform.isIOS) {
+    } else if (Platform.isIOS) {
       final iosInfo = await deviceInfo.iosInfo;
-      return DeviceInfoModel(
+      result = DeviceInfoModel(
         token: token,
         platform: 'ios',
         deviceModel: iosInfo.model,
-        deviceId: iosInfo.identifierForVendor,
+        deviceId: iosInfo.identifierForVendor ?? token,
         brand: 'Apple',
+        manufacturer: 'Apple',
         osVersion: iosInfo.systemVersion,
         isPhysicalDevice: iosInfo.isPhysicalDevice,
+        hardware: iosInfo.utsname.machine,
+        appVersion: packageInfo.version,
+        appBuildNumber: packageInfo.buildNumber,
+        watchVideoCount: watchVideoCount,
+      );
+    } else {
+      logDebugStatic(
+        'Using generic device metadata for ${Platform.operatingSystem}',
+        'DeviceInfoService',
+      );
+      result = DeviceInfoModel(
+        token: token,
+        platform: Platform.operatingSystem,
+        deviceId: token,
+        appVersion: packageInfo.version,
+        appBuildNumber: packageInfo.buildNumber,
         watchVideoCount: watchVideoCount,
       );
     }
 
-    logDebugStatic(
-      'Using generic device metadata for ${Platform.operatingSystem}',
-      'DeviceInfoService',
-    );
-    return DeviceInfoModel(
-      token: token,
-      platform: Platform.operatingSystem,
-      watchVideoCount: watchVideoCount,
-    );
+    _cachedDeviceInfo = result;
+    return result;
   }
 }

@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:quick_uninstaller/core/models/device_info_model.dart';
-import 'package:quick_uninstaller/core/services/app_info_service.dart';
 import 'package:quick_uninstaller/core/utility/logger_utility.dart';
 import 'package:quick_uninstaller/core/utility/trial_utility.dart';
 import 'package:synchronized/synchronized.dart';
@@ -35,6 +34,7 @@ class BackendAsAService {
 
   final Lock _listenToDeviceTokenLock = Lock();
   String? _inMemoryDeviceToken;
+  StreamSubscription<String>? _tokenRefreshSubscription;
 
   static const String noticeCollection = 'notice';
   static const String noticeDoc = 'notice-bn';
@@ -104,72 +104,109 @@ class BackendAsAService {
   }
 
   Future<void> listenToDeviceToken({
-    required void Function(String) onTokenFound,
+    required FutureOr<void> Function(String) onTokenFound,
   }) async => catchFutureOrVoid(
     () async => await _listenToDeviceToken(onTokenFound: onTokenFound),
   );
 
   Future<void> _listenToDeviceToken({
-    required void Function(String) onTokenFound,
+    required FutureOr<void> Function(String) onTokenFound,
   }) async {
-    // prevents this function to be called multiple times in short period
     await _listenToDeviceTokenLock.synchronized(() async {
-      catchFutureOrVoid(() async {
-        _inMemoryDeviceToken ??= await _messaging.getToken();
-        logDebug("Device token refreshed -> $_inMemoryDeviceToken");
-        if (_inMemoryDeviceToken != null) onTokenFound(_inMemoryDeviceToken!);
+      _inMemoryDeviceToken ??= await catchAndReturnFuture<String?>(() {
+        return _messaging.getToken();
+      });
+      logDebug("Device token refreshed -> $_inMemoryDeviceToken");
+      final token = _inMemoryDeviceToken;
+      if (token != null) await onTokenFound(token);
 
-        _messaging.onTokenRefresh.listen((String? token) {
-          logDebug("Device token refreshed -> $token");
-          if (token != null) onTokenFound(token);
-        });
+      _tokenRefreshSubscription ??= _messaging.onTokenRefresh.listen((token) {
+        _inMemoryDeviceToken = token;
+        logDebug("Device token refreshed -> $token");
+        unawaited(Future.sync(() => onTokenFound(token)));
       });
     });
   }
 
-  Future<int> storeDeviceInfo(DeviceInfoModel deviceInfo) async {
+  Future<int> storeDeviceInfo(
+    DeviceInfoModel deviceInfo, {
+    bool incrementWatchVideoCount = false,
+  }) async {
     return await catchAndReturnFuture<int>(() async {
-          if (deviceInfo.token.trim().isEmpty) {
+          if (deviceInfo.documentId.isEmpty) {
             return deviceInfo.watchVideoCount;
           }
 
-          final appVersion = await currentAppVersion;
           final docRef = _fireStore
               .collection(deviceInfoCollection)
               .doc(deviceInfo.documentId);
-          final docSnapshot = await docRef.get();
+          final legacyDocumentId = deviceInfo.legacyDocumentId;
+          final legacyDocRef = legacyDocumentId == null
+              ? null
+              : _fireStore
+                    .collection(deviceInfoCollection)
+                    .doc(legacyDocumentId);
 
-          if (docSnapshot.exists) {
-            final existingData = docSnapshot.data();
-            final remoteWatchVideoCount =
-                (existingData?[DeviceInfoModel.watchVideoCountKey] as num?)
+          return _fireStore.runTransaction<int>((transaction) async {
+            final docSnapshot = await transaction.get(docRef);
+            final legacyDocSnapshot = legacyDocRef == null
+                ? null
+                : await transaction.get(legacyDocRef);
+
+            final currentWatchVideoCount =
+                (docSnapshot.data()?[DeviceInfoModel.watchVideoCountKey]
+                        as num?)
                     ?.toInt() ??
                 0;
-            final syncedWatchVideoCount =
-                deviceInfo.watchVideoCount > remoteWatchVideoCount
+            final legacyWatchVideoCount =
+                (legacyDocSnapshot?.data()?[DeviceInfoModel.watchVideoCountKey]
+                        as num?)
+                    ?.toInt() ??
+                0;
+            final remoteWatchVideoCount =
+                currentWatchVideoCount > legacyWatchVideoCount
+                ? currentWatchVideoCount
+                : legacyWatchVideoCount;
+            final syncedWatchVideoCount = incrementWatchVideoCount
+                ? remoteWatchVideoCount + 1
+                : deviceInfo.watchVideoCount > remoteWatchVideoCount
                 ? deviceInfo.watchVideoCount
                 : remoteWatchVideoCount;
             final syncedDeviceInfo = deviceInfo.copyWith(
-              appVersion: appVersion,
               watchVideoCount: syncedWatchVideoCount,
             );
+            final serverTimestamp = FieldValue.serverTimestamp();
+            final isNewRewardCompleted =
+                incrementWatchVideoCount ||
+                deviceInfo.watchVideoCount > remoteWatchVideoCount;
+            final lastRewardedAdAt = isNewRewardCompleted
+                ? serverTimestamp
+                : null;
 
-            await docRef.update(
-              syncedDeviceInfo.toUpdateJson(
-                updatedAt: FieldValue.serverTimestamp(),
-              ),
-            );
+            if (docSnapshot.exists) {
+              transaction.set(
+                docRef,
+                syncedDeviceInfo.toUpdateJson(
+                  updatedAt: serverTimestamp,
+                  lastSeenAt: serverTimestamp,
+                  lastRewardedAdAt: lastRewardedAdAt,
+                ),
+                SetOptions(merge: true),
+              );
+            } else {
+              transaction.set(
+                docRef,
+                syncedDeviceInfo.toCreateJson(
+                  createdAt: serverTimestamp,
+                  updatedAt: serverTimestamp,
+                  lastSeenAt: serverTimestamp,
+                  lastRewardedAdAt: lastRewardedAdAt,
+                ),
+              );
+            }
+
             return syncedWatchVideoCount;
-          }
-
-          final syncedDeviceInfo = deviceInfo.copyWith(appVersion: appVersion);
-          await docRef.set(
-            syncedDeviceInfo.toCreateJson(
-              createdAt: FieldValue.serverTimestamp(),
-              updatedAt: FieldValue.serverTimestamp(),
-            ),
-          );
-          return syncedDeviceInfo.watchVideoCount;
+          });
         }) ??
         deviceInfo.watchVideoCount;
   }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
@@ -40,6 +42,7 @@ class ServiceSetup implements SetupModule {
 
     // await GetServerKey().getServerKeyToken();
     await LocalCacheService.setUp();
+    unawaited(_serviceLocator<DeviceInfoService>().registerDevice());
   }
 
   Future<void> _setUpFirebaseServices() async {
