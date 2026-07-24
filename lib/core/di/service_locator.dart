@@ -19,6 +19,7 @@ import 'package:quick_uninstaller/core/base/base_presenter.dart';
 import 'package:quick_uninstaller/core/di/setup/service_setup.dart';
 import 'package:quick_uninstaller/features/app_management/di/app_management_di.dart';
 import 'package:quick_uninstaller/features/ads/di/ads_di.dart';
+import 'package:quick_uninstaller/features/app_update/di/app_update_di.dart';
 import 'package:quick_uninstaller/features/home/di/home_di.dart';
 import 'package:quick_uninstaller/features/main/di/main_di.dart';
 import 'package:quick_uninstaller/features/onboarding/di/onboarding_di.dart';
@@ -69,6 +70,7 @@ class ServiceLocator {
     // Home DI
     await HomeDi.setup(_serviceLocator);
     await AdsDi.setup(_serviceLocator);
+    await AppUpdateDi.setup(_serviceLocator);
 
     //Feature DI setup
     await AppManagementDi.setup(_serviceLocator);

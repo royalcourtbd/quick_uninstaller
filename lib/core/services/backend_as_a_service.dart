@@ -38,7 +38,8 @@ class BackendAsAService {
 
   static const String noticeCollection = 'notice';
   static const String noticeDoc = 'notice-bn';
-  static const String appUpdateDoc = 'app-update';
+  static const String settingsCollection = 'settings';
+  static const String appUpdateDoc = 'app_update';
   static const String deviceTokensCollection = 'device_tokens';
   static const String deviceInfoCollection = 'device_info';
   static const String isActive = 'is_active';
@@ -74,14 +75,12 @@ class BackendAsAService {
     });
   }
 
-  Future<Map<String, dynamic>> getAppUpdateInfo() async {
-    Map<String, dynamic>? appUpdateInfo = {};
-    appUpdateInfo = await catchAndReturnFuture(() async {
-      final DocumentSnapshot<Map<String, dynamic>> docSnapshot =
-          await _fireStore.collection(noticeCollection).doc(appUpdateDoc).get();
-      return docSnapshot.data();
-    });
-    return appUpdateInfo ?? {};
+  Stream<Map<String, dynamic>?> getAppUpdateConfigStream() {
+    return _fireStore
+        .collection(settingsCollection)
+        .doc(appUpdateDoc)
+        .snapshots()
+        .map((snapshot) => snapshot.exists ? snapshot.data() : null);
   }
 
   Stream<Map<String, dynamic>?> getAdUnitsStream() async* {

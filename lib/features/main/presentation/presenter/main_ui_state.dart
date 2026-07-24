@@ -1,5 +1,7 @@
 import 'package:quick_uninstaller/core/base/base_ui_state.dart';
 import 'package:quick_uninstaller/features/ads/domain/entities/banner_ad_config_entity.dart';
+import 'package:quick_uninstaller/features/app_update/domain/entities/app_update_config_entity.dart';
+import 'package:quick_uninstaller/features/app_update/domain/entities/update_type.dart';
 
 class MainUiState extends BaseUiState {
   const MainUiState({
@@ -8,6 +10,9 @@ class MainUiState extends BaseUiState {
     required this.selectedBottomNavIndex,
     this.lastBackPressTime,
     this.bannerAdConfig,
+    this.appUpdateConfig,
+    required this.updateType,
+    required this.hasShownUpdateNotice,
   });
 
   factory MainUiState.empty() {
@@ -16,6 +21,8 @@ class MainUiState extends BaseUiState {
       userMessage: '',
       selectedBottomNavIndex: 0,
       lastBackPressTime: null,
+      updateType: UpdateType.none,
+      hasShownUpdateNotice: false,
     );
   }
 
@@ -26,12 +33,18 @@ class MainUiState extends BaseUiState {
     selectedBottomNavIndex,
     lastBackPressTime,
     bannerAdConfig,
+    appUpdateConfig,
+    updateType,
+    hasShownUpdateNotice,
   ];
 
   //Add more properties to the state
   final int selectedBottomNavIndex;
   final DateTime? lastBackPressTime;
   final BannerAdConfigEntity? bannerAdConfig;
+  final AppUpdateConfigEntity? appUpdateConfig;
+  final UpdateType updateType;
+  final bool hasShownUpdateNotice;
 
   MainUiState copyWith({
     bool? isLoading,
@@ -39,6 +52,9 @@ class MainUiState extends BaseUiState {
     int? selectedBottomNavIndex,
     DateTime? lastBackPressTime,
     BannerAdConfigEntity? bannerAdConfig,
+    AppUpdateConfigEntity? appUpdateConfig,
+    UpdateType? updateType,
+    bool? hasShownUpdateNotice,
   }) {
     return MainUiState(
       isLoading: isLoading ?? this.isLoading,
@@ -47,6 +63,9 @@ class MainUiState extends BaseUiState {
           selectedBottomNavIndex ?? this.selectedBottomNavIndex,
       lastBackPressTime: lastBackPressTime ?? this.lastBackPressTime,
       bannerAdConfig: bannerAdConfig ?? this.bannerAdConfig,
+      appUpdateConfig: appUpdateConfig ?? this.appUpdateConfig,
+      updateType: updateType ?? this.updateType,
+      hasShownUpdateNotice: hasShownUpdateNotice ?? this.hasShownUpdateNotice,
     );
   }
 }
