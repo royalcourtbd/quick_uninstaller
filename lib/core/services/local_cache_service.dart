@@ -115,4 +115,5 @@ class CacheKeys {
   static const String launchCount = "launch_count_key";
   static const String location = "location_key";
   static const String sortType = "sort_type_key";
+  static const String supportAdWatchCount = "support_ad_watch_count_key";
 }

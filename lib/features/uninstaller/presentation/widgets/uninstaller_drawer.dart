@@ -14,6 +14,7 @@ class UninstallerDrawer extends StatelessWidget {
     required this.onPrivacyPolicyTap,
     required this.onOtherAppsTap,
     required this.onAboutTap,
+    required this.onDeveloperHelpTap,
   });
 
   final UninstallerDestination selectedDestination;
@@ -24,6 +25,7 @@ class UninstallerDrawer extends StatelessWidget {
   final VoidCallback onPrivacyPolicyTap;
   final VoidCallback onOtherAppsTap;
   final VoidCallback onAboutTap;
+  final VoidCallback onDeveloperHelpTap;
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +71,11 @@ class UninstallerDrawer extends StatelessWidget {
                     child: Divider(height: 1),
                   ),
                   const _SectionLabel('INFORMATION'),
+                  _DestinationTile(
+                    icon: Icons.volunteer_activism_outlined,
+                    label: 'Developer Help',
+                    onTap: onDeveloperHelpTap,
+                  ),
                   _DestinationTile(
                     icon: Icons.shield_outlined,
                     label: 'Privacy Policy',

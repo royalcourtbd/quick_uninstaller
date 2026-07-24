@@ -39,4 +39,25 @@ class AdAnalyticsService {
       parameters: {'ad_unit_id': adUnitId},
     );
   }
+
+  Future<void> logRewardedAdClicked({required String adUnitId}) {
+    return _backendService.logEvent(
+      name: 'rewarded_ad_clicked',
+      parameters: {'ad_unit_id': adUnitId},
+    );
+  }
+
+  Future<void> logRewardedAdImpression({required String adUnitId}) {
+    return _backendService.logEvent(
+      name: 'rewarded_ad_impression',
+      parameters: {'ad_unit_id': adUnitId},
+    );
+  }
+
+  Future<void> logRewardedAdCompleted({required String adUnitId}) {
+    return _backendService.logEvent(
+      name: 'rewarded_ad_completed',
+      parameters: {'ad_unit_id': adUnitId},
+    );
+  }
 }

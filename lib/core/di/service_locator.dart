@@ -22,6 +22,7 @@ import 'package:quick_uninstaller/features/ads/di/ads_di.dart';
 import 'package:quick_uninstaller/features/home/di/home_di.dart';
 import 'package:quick_uninstaller/features/main/di/main_di.dart';
 import 'package:quick_uninstaller/features/onboarding/di/onboarding_di.dart';
+import 'package:quick_uninstaller/features/support/di/support_di.dart';
 import 'package:quick_uninstaller/features/uninstaller/di/uninstaller_di.dart';
 
 final GetIt _serviceLocator = GetIt.instance;
@@ -76,5 +77,6 @@ class ServiceLocator {
     await OnboardingDi.setup(_serviceLocator);
     await MainDi.setup(_serviceLocator);
     await UninstallerDi.setup(_serviceLocator);
+    await SupportDi.setup(_serviceLocator);
   }
 }

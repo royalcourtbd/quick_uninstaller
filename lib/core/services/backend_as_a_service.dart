@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:quick_uninstaller/core/models/device_info_model.dart';
+import 'package:quick_uninstaller/core/services/app_info_service.dart';
 import 'package:quick_uninstaller/core/utility/logger_utility.dart';
 import 'package:quick_uninstaller/core/utility/trial_utility.dart';
 import 'package:synchronized/synchronized.dart';
@@ -38,6 +40,7 @@ class BackendAsAService {
   static const String noticeDoc = 'notice-bn';
   static const String appUpdateDoc = 'app-update';
   static const String deviceTokensCollection = 'device_tokens';
+  static const String deviceInfoCollection = 'device_info';
   static const String isActive = 'is_active';
   static const String configCollection = 'config';
   static const String adUnitsDoc = 'ad_units';
@@ -122,5 +125,52 @@ class BackendAsAService {
         });
       });
     });
+  }
+
+  Future<int> storeDeviceInfo(DeviceInfoModel deviceInfo) async {
+    return await catchAndReturnFuture<int>(() async {
+          if (deviceInfo.token.trim().isEmpty) {
+            return deviceInfo.watchVideoCount;
+          }
+
+          final appVersion = await currentAppVersion;
+          final docRef = _fireStore
+              .collection(deviceInfoCollection)
+              .doc(deviceInfo.documentId);
+          final docSnapshot = await docRef.get();
+
+          if (docSnapshot.exists) {
+            final existingData = docSnapshot.data();
+            final remoteWatchVideoCount =
+                (existingData?[DeviceInfoModel.watchVideoCountKey] as num?)
+                    ?.toInt() ??
+                0;
+            final syncedWatchVideoCount =
+                deviceInfo.watchVideoCount > remoteWatchVideoCount
+                ? deviceInfo.watchVideoCount
+                : remoteWatchVideoCount;
+            final syncedDeviceInfo = deviceInfo.copyWith(
+              appVersion: appVersion,
+              watchVideoCount: syncedWatchVideoCount,
+            );
+
+            await docRef.update(
+              syncedDeviceInfo.toUpdateJson(
+                updatedAt: FieldValue.serverTimestamp(),
+              ),
+            );
+            return syncedWatchVideoCount;
+          }
+
+          final syncedDeviceInfo = deviceInfo.copyWith(appVersion: appVersion);
+          await docRef.set(
+            syncedDeviceInfo.toCreateJson(
+              createdAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
+            ),
+          );
+          return syncedDeviceInfo.watchVideoCount;
+        }) ??
+        deviceInfo.watchVideoCount;
   }
 }

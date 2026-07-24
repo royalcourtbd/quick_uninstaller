@@ -6,6 +6,7 @@ import 'package:quick_uninstaller/core/widgets/presentable_widget_builder.dart';
 import 'package:quick_uninstaller/core/utility/extensions.dart';
 import 'package:quick_uninstaller/features/main/presentation/presenter/main_presenter.dart';
 import 'package:quick_uninstaller/features/main/presentation/widgets/double_tap_back_to_exit_app.dart';
+import 'package:quick_uninstaller/features/support/presentation/ui/developer_help_page.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_presenter.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_ui_state.dart';
 import 'package:quick_uninstaller/features/uninstaller/presentation/presenter/uninstaller_view_state.dart';
@@ -86,6 +87,7 @@ class _UninstallerPageState extends State<UninstallerPage>
                   _openDrawerPage(const PrivacyPolicyPage()),
               onOtherAppsTap: _openOtherApps,
               onAboutTap: () => _openDrawerPage(const AboutPage()),
+              onDeveloperHelpTap: () => _openDrawerPage(DeveloperHelpPage()),
             ),
             body: Column(
               children: [
