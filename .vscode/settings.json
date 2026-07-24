@@ -1,10 +1,15 @@
 {
   "cmake.ignoreCMakeListsMissing": true,
+
   "dart.analysisExcludedFolders": ["build", ".dart_tool"],
+
   "files.exclude": {
-    "**/build": true
+    "**/build": false
   },
+
   "search.exclude": {
     "**/build": true
-  }
+  },
+
+  "explorer.excludeGitIgnore": false
 }
